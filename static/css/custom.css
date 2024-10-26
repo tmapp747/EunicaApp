@@ -1,0 +1,23 @@
+/* Custom styles to complement Bootstrap dark theme */
+#messages {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: var(--bs-dark);
+}
+
+.message {
+    margin-bottom: 0.5rem;
+}
+
+#band-list .list-group-item {
+    cursor: pointer;
+}
+
+#band-list .list-group-item:hover {
+    background-color: var(--bs-secondary);
+}
+
+.card {
+    border-color: var(--bs-border-color);
+}
