@@ -11,4 +11,5 @@ dependencies = [
     "flask-socketio>=5.4.1",
     "flask-login>=0.6.3",
     "oauthlib>=3.2.2",
+    "werkzeug",
 ]

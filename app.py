@@ -27,6 +27,7 @@ login_manager.login_view = 'login'
 
 with app.app_context():
     import models
+    db.drop_all()  # This will drop all tables without dependency issues
     db.create_all()
 
 from chat_socket import *
