@@ -5,6 +5,12 @@ from models import User, Message, ChatRoom
 from werkzeug.utils import secure_filename
 import os
 import uuid
+import logging
+from datetime import datetime
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 STATIC_USERS = {
     'Bossm': 'Bossm143',
@@ -15,56 +21,81 @@ STATIC_USERS = {
 }
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx'}
+MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def save_file(file):
-    if not file:
-        return None, None
+    try:
+        if not file:
+            return None, None
+            
+        if not allowed_file(file.filename):
+            raise ValueError("File type not allowed")
+            
+        if file.content_length and file.content_length > MAX_FILE_SIZE:
+            raise ValueError("File size exceeds maximum limit")
+            
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
         
-    filename = secure_filename(file.filename)
-    # Generate unique filename
-    unique_filename = f"{uuid.uuid4()}_{filename}"
-    file_path = os.path.join('uploads', unique_filename)
-    absolute_path = os.path.join('static', file_path)
-    
-    # Ensure upload directory exists
-    os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
-    
-    file.save(absolute_path)
-    return file_path, filename
+        # Create year/month based directory structure
+        today = datetime.now()
+        relative_path = os.path.join('uploads', str(today.year), str(today.month))
+        file_path = os.path.join('static', relative_path)
+        
+        # Ensure upload directory exists
+        os.makedirs(file_path, exist_ok=True)
+        
+        # Save file
+        file_full_path = os.path.join(file_path, unique_filename)
+        file.save(file_full_path)
+        
+        # Return relative path from static directory
+        return os.path.join(relative_path, unique_filename), filename
+        
+    except Exception as e:
+        logger.error(f"Error saving file: {str(e)}")
+        raise
 
 def initialize_users():
-    with app.app_context():
-        # Only add users if they don't exist
-        for username, password in STATIC_USERS.items():
-            if not User.query.filter_by(username=username).first():
-                user = User()
-                user.username = username
-                user.set_password(password)
-                db.session.add(user)
-        db.session.commit()
+    try:
+        with app.app_context():
+            for username, password in STATIC_USERS.items():
+                if not User.query.filter_by(username=username).first():
+                    user = User()
+                    user.username = username
+                    user.set_password(password)
+                    db.session.add(user)
+            db.session.commit()
+    except Exception as e:
+        logger.error(f"Error initializing users: {str(e)}")
+        db.session.rollback()
 
 def get_or_create_chat(user1, user2):
-    # Check if a direct chat between these users already exists
-    chat = ChatRoom.query.filter(
-        ChatRoom.is_group == False,
-        ChatRoom.users.contains(user1),
-        ChatRoom.users.contains(user2)
-    ).first()
-    
-    if not chat:
-        # Set chat name as partner's username
-        chat = ChatRoom()
-        chat.name = user2.username if user1 == current_user else user1.username
-        chat.is_group = False
-        chat.users.append(user1)
-        chat.users.append(user2)
-        db.session.add(chat)
-        db.session.commit()
-    
-    return chat
+    try:
+        chat = ChatRoom.query.filter(
+            ChatRoom.is_group == False,
+            ChatRoom.users.contains(user1),
+            ChatRoom.users.contains(user2)
+        ).first()
+        
+        if not chat:
+            chat = ChatRoom()
+            chat.name = user2.username if user1 == current_user else user1.username
+            chat.is_group = False
+            chat.users.append(user1)
+            chat.users.append(user2)
+            db.session.add(chat)
+            db.session.commit()
+        
+        return chat
+        
+    except Exception as e:
+        logger.error(f"Error getting/creating chat: {str(e)}")
+        db.session.rollback()
+        raise
 
 @app.route('/')
 @login_required
@@ -75,73 +106,88 @@ def index():
 @app.route('/chat/<int:user_id>')
 @login_required
 def chat(user_id=None):
-    users = User.query.all()
-    active_chat = None
-    chat_partner = None
-    messages = []
+    try:
+        users = User.query.all()
+        active_chat = None
+        chat_partner = None
+        messages = []
 
-    if user_id:
-        chat_partner = User.query.get_or_404(user_id)
-        active_chat = get_or_create_chat(current_user, chat_partner)
-        messages = Message.query.filter_by(chatroom_id=active_chat.id).order_by(Message.timestamp.asc()).all()
+        if user_id:
+            chat_partner = User.query.get_or_404(user_id)
+            active_chat = get_or_create_chat(current_user, chat_partner)
+            messages = Message.query.filter_by(chatroom_id=active_chat.id).order_by(Message.timestamp.asc()).all()
 
-    return render_template('chat.html', users=users, active_chat=active_chat, chat_partner=chat_partner, messages=messages)
+        return render_template('chat.html', users=users, active_chat=active_chat, chat_partner=chat_partner, messages=messages)
+        
+    except Exception as e:
+        logger.error(f"Error in chat route: {str(e)}")
+        flash("An error occurred. Please try again.")
+        return redirect(url_for('index'))
 
 @app.route('/send_message', methods=['POST'])
 @login_required
 def send_message():
-    chat_id = request.form.get('chat_id')
-    if not chat_id:
-        return jsonify({'error': 'No chat ID provided'}), 400
+    try:
+        chat_id = request.form.get('chat_id')
+        if not chat_id:
+            return jsonify({'error': 'No chat ID provided'}), 400
+            
+        chatroom = ChatRoom.query.get(chat_id)
+        if not chatroom or current_user not in chatroom.users:
+            return jsonify({'error': 'Invalid chat room'}), 403
+            
+        message_text = request.form.get('message', '').strip()
+        file = request.files.get('file')
         
-    chatroom = ChatRoom.query.get(chat_id)
-    if not chatroom or current_user not in chatroom.users:
-        return jsonify({'error': 'Invalid chat room'}), 403
+        if not message_text and not file:
+            return jsonify({'error': 'No content provided'}), 400
+            
+        # Handle file upload if present
+        file_path = None
+        file_name = None
+        message_type = 'text'
         
-    message_text = request.form.get('message', '').strip()
-    file = request.files.get('file')
-    
-    if not message_text and not file:
-        return jsonify({'error': 'No content provided'}), 400
+        if file:
+            try:
+                file_path, file_name = save_file(file)
+                if file_path:
+                    message_type = 'image' if file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) else 'file'
+            except ValueError as ve:
+                return jsonify({'error': str(ve)}), 400
+            except Exception as e:
+                logger.error(f"File upload error: {str(e)}")
+                return jsonify({'error': 'File upload failed'}), 500
         
-    if file and not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
+        # Create message
+        message = Message(
+            content=message_text if message_text else '',
+            message_type=message_type,
+            file_path=file_path,
+            file_name=file_name,
+            sender_id=current_user.id,
+            chatroom_id=chat_id
+        )
         
-    # Handle file upload if present
-    file_path = None
-    file_name = None
-    message_type = 'text'
-    
-    if file:
-        file_path, file_name = save_file(file)
-        if file_path:
-            message_type = 'image' if file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) else 'file'
-    
-    # Create message
-    message = Message(
-        content=message_text if message_text else '',
-        message_type=message_type,
-        file_path=file_path,
-        file_name=file_name,
-        sender_id=current_user.id,
-        chatroom_id=chat_id
-    )
-    
-    db.session.add(message)
-    db.session.commit()
-    
-    # Emit socket event
-    socketio.emit('new_message', {
-        'message': message.content,
-        'message_type': message_type,
-        'file_path': url_for('static', filename=file_path) if file_path else None,
-        'file_name': file_name,
-        'username': current_user.username,
-        'sender_id': current_user.id,
-        'timestamp': message.timestamp.strftime('%H:%M')
-    }, room=str(chat_id))
-    
-    return jsonify({'status': 'success'})
+        db.session.add(message)
+        db.session.commit()
+        
+        # Emit socket event
+        socketio.emit('new_message', {
+            'message': message.content,
+            'message_type': message_type,
+            'file_path': url_for('static', filename=file_path) if file_path else None,
+            'file_name': file_name,
+            'username': current_user.username,
+            'sender_id': current_user.id,
+            'timestamp': message.timestamp.strftime('%H:%M')
+        }, room=str(chat_id))
+        
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        logger.error(f"Error in send_message: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to send message'}), 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

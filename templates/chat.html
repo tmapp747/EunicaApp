@@ -58,6 +58,11 @@
                         </div>
                     {% endif %}
                 </div>
+                {% if message.message_type in ['image', 'file'] %}
+                <div class="upload-progress" style="display: none;">
+                    <div class="upload-progress-bar" style="width: 0%"></div>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -76,12 +81,20 @@
 
 {% block extra_js %}
 <script>
-const socket = io();
+const socket = io({
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 5
+});
+
 const messagesDiv = document.getElementById('messages');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
 const fileInput = document.getElementById('file-input');
 const sidebar = document.getElementById('contactsSidebar');
+
+let currentUpload = null;
 
 function toggleSidebar() {
     sidebar.classList.toggle('show');
@@ -115,7 +128,68 @@ function createMessageElement(data) {
             ${contentHTML}
         </div>
     `;
+
+    if (data.message_type === 'image' || data.message_type === 'file') {
+        const progressDiv = document.createElement('div');
+        progressDiv.className = 'upload-progress';
+        progressDiv.innerHTML = '<div class="upload-progress-bar"></div>';
+        messageDiv.appendChild(progressDiv);
+    }
+
     return messageDiv;
+}
+
+async function handleFileUpload(file, formData) {
+    const messageDiv = createMessageElement({
+        message: '',
+        message_type: file.type.startsWith('image/') ? 'image' : 'file',
+        username: '{{ current_user.username }}',
+        sender_id: {{ current_user.id }},
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        file_name: file.name
+    });
+
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    const progressBar = messageDiv.querySelector('.upload-progress-bar');
+    const progressDiv = messageDiv.querySelector('.upload-progress');
+    progressDiv.style.display = 'block';
+
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/send_message', true);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+            }
+        };
+
+        return new Promise((resolve, reject) => {
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    progressDiv.style.display = 'none';
+                    resolve(xhr.response);
+                } else {
+                    progressDiv.style.backgroundColor = 'var(--bs-danger)';
+                    reject(new Error('Upload failed'));
+                }
+            };
+
+            xhr.onerror = () => {
+                progressDiv.style.backgroundColor = 'var(--bs-danger)';
+                reject(new Error('Network error'));
+            };
+
+            xhr.send(formData);
+        });
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        messageDiv.remove();
+        throw error;
+    }
 }
 
 messageForm.addEventListener('submit', async (e) => {
@@ -131,19 +205,44 @@ messageForm.addEventListener('submit', async (e) => {
     formData.append('chat_id', '{{ active_chat.id if active_chat else "" }}');
     
     try {
-        const response = await fetch('/send_message', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) throw new Error('Failed to send message');
+        if (file) {
+            await handleFileUpload(file, formData);
+        } else {
+            const response = await fetch('/send_message', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) throw new Error('Failed to send message');
+        }
         
         messageInput.value = '';
         fileInput.value = '';
         
     } catch (error) {
         console.error('Error sending message:', error);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = 'Failed to send message. Please try again.';
+        messageForm.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 3000);
     }
+});
+
+// Socket event handlers
+socket.on('connect', () => {
+    console.log('Connected to server');
+    if ('{{ active_chat.id if active_chat else "" }}') {
+        socket.emit('join', { room: '{{ active_chat.id }}' });
+    }
+});
+
+socket.on('disconnect', () => {
+    console.log('Disconnected from server');
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
 });
 
 socket.on('new_message', (data) => {
