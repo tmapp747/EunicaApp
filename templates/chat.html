@@ -1,55 +1,5 @@
 {% extends "base.html" %}
 
-{% block extra_css %}
-<style>
-.chat-container {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-}
-
-.messages {
-    flex-grow: 1;
-    overflow-y: auto;
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: var(--bs-dark);
-    border-radius: 0.5rem;
-}
-
-.message {
-    margin-bottom: 1rem;
-    padding: 0.5rem;
-    border-radius: 0.25rem;
-}
-
-.message-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
-    color: var(--bs-secondary);
-}
-
-.message-content {
-    background: var(--bs-secondary-bg);
-    padding: 0.5rem;
-    border-radius: 0.25rem;
-    word-break: break-word;
-}
-
-.message-form {
-    display: flex;
-    gap: 1rem;
-}
-
-.message-input {
-    flex-grow: 1;
-}
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="chat-container">
     <div class="messages" id="messages">
@@ -71,9 +21,7 @@
         <button type="submit" class="btn btn-primary">Send</button>
     </form>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 const socket = io();
 const messagesDiv = document.getElementById('messages');

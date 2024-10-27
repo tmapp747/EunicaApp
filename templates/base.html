@@ -8,10 +8,21 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
-<body>
-    <div class="container">
+<body class="bg-dark">
+    <header class="navbar navbar-dark bg-dark border-bottom border-secondary mb-3">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">Eunica</span>
+            {% if current_user.is_authenticated %}
+            <div class="d-flex align-items-center">
+                <span class="me-3">{{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+    <main class="container-fluid">
         {% block content %}{% endblock %}
-    </div>
+    </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     {% block extra_js %}{% endblock %}
 </body>
