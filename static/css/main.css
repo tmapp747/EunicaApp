@@ -174,25 +174,28 @@ body {
 }
 
 .message {
+    background: var(--bs-blue);  /* Change message background to blue */
+    color: white;  /* Set text color to white */
     margin-bottom: 1rem;
     padding: 0.75rem;
     border-radius: 8px;
-    background: var(--message-bg);
     transition: background-color 0.2s;
     max-width: 80%;
 }
 
 .message-own {
     margin-left: auto;
-    background: var(--bs-primary);
+    background: var(--bs-green);  /* Change own messages to green */
+    color: white;  /* Set text color to white */
 }
 
 .message:hover {
-    background: var(--message-hover);
+    background: var(--bs-blue);
+    opacity: 0.9;
 }
 
 .message-own:hover {
-    background: var(--bs-primary);
+    background: var(--bs-green);
     opacity: 0.9;
 }
 
@@ -201,16 +204,17 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
-    color: var(--bs-secondary);
+    color: rgba(255, 255, 255, 0.8);  /* Make header text more visible */
     font-size: 0.875rem;
 }
 
 .message-content {
-    color: var(--message-text);
+    color: white;  /* Ensure message text is white */
     line-height: 1.4;
     word-break: break-word;
 }
 
+/* Message Form */
 .message-form {
     position: fixed;
     bottom: 0;
