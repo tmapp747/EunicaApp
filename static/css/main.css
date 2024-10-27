@@ -14,6 +14,43 @@ body {
     background: var(--chat-bg) !important;
 }
 
+/* Login Styles */
+.login-container {
+    height: calc(100vh - var(--header-height));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-card {
+    background: var(--message-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-title {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--message-text);
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.login-form .btn-primary {
+    background: #0D6EFD;
+    border: none;
+    padding: 0.75rem;
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
 /* Header Styles */
 .header-title {
     position: absolute;
@@ -101,31 +138,13 @@ body {
     font-weight: 500;
 }
 
-/* Hamburger Menu Button */
-.hamburger-btn {
-    background: transparent;
-    border: none;
-    color: var(--message-text);
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    transition: background-color 0.2s;
-}
-
-.hamburger-btn:hover {
-    background-color: var(--message-hover);
-}
-
 /* Chat Main Area */
 .chat-main {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
+    margin-left: var(--sidebar-width);
 }
 
 .chat-header {
@@ -140,37 +159,14 @@ body {
     font-size: 1.1rem;
 }
 
-.call-btn {
-    border-radius: 50%;
-    transition: background-color 0.2s;
-    margin-left: 8px;
-    width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--message-bg);
-}
-
-.chat-header .btn:first-of-type {
-    margin-left: 16px;
-}
-
-.call-btn:hover {
-    background-color: var(--message-hover) !important;
-}
-
-.call-btn i {
-    font-size: 1rem;
-    color: var(--message-text);
-}
-
 /* Messages Area */
 .messages {
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
-    margin-bottom: 80px;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 800px;
 }
 
 .message {
@@ -178,26 +174,14 @@ body {
     color: white;
     margin-bottom: 1rem;
     padding: 0.75rem;
-    border-radius: 8px;
-    transition: background-color 0.2s;
-    max-width: 80%;
+    border-radius: 12px;
+    max-width: 70%;
     position: relative;
 }
 
 .message-own {
     margin-left: auto;
     background: var(--bs-green);
-    color: white;
-}
-
-.message:hover {
-    background: var(--bs-blue);
-    opacity: 0.9;
-}
-
-.message-own:hover {
-    background: var(--bs-green);
-    opacity: 0.9;
 }
 
 .message-header {
@@ -219,7 +203,7 @@ body {
 .message-image {
     max-width: 100%;
     max-height: 300px;
-    border-radius: 4px;
+    border-radius: 8px;
     margin-top: 8px;
     cursor: pointer;
     transition: transform 0.2s;
@@ -262,7 +246,7 @@ body {
 .message-form {
     position: fixed;
     bottom: 0;
-    left: 0;
+    left: var(--sidebar-width);
     right: 0;
     padding: 1rem;
     background: var(--chat-bg);
@@ -302,20 +286,40 @@ body {
     background-color: var(--message-hover) !important;
 }
 
+/* Progress Bar */
+.upload-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: var(--bs-primary);
+    transition: width 0.3s ease;
+}
+
+/* Error Message */
+.error-message {
+    color: var(--bs-danger);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
 /* Media Queries */
 @media (min-width: 768px) {
     .contacts-sidebar {
-        position: relative;
+        position: fixed;
         left: 0;
-        width: var(--sidebar-width);
     }
     
     .hamburger-btn {
         display: none;
-    }
-    
-    .chat-main {
-        margin-left: var(--sidebar-width);
     }
 }
 
@@ -330,5 +334,9 @@ body {
     
     .chat-main {
         margin-left: 0;
+    }
+    
+    .message-form {
+        left: 0;
     }
 }
