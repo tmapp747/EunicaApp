@@ -45,14 +45,29 @@
                     <span>{{ message.timestamp.strftime('%H:%M') }}</span>
                 </div>
                 <div class="message-content">
-                    {{ message.content }}
+                    {% if message.message_type == 'text' %}
+                        {{ message.content }}
+                    {% elif message.message_type == 'image' %}
+                        <img src="{{ url_for('static', filename=message.file_path) }}" alt="Shared image" class="message-image">
+                    {% elif message.message_type == 'file' %}
+                        <div class="file-attachment">
+                            <i class="fas fa-file"></i>
+                            <a href="{{ url_for('static', filename=message.file_path) }}" target="_blank" class="file-link">
+                                {{ message.file_name }}
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
         
-        <form class="message-form" id="message-form">
-            <input type="text" class="form-control message-input" id="message-input" placeholder="Type your message..." required>
+        <form class="message-form" id="message-form" enctype="multipart/form-data">
+            <input type="text" class="form-control message-input" id="message-input" placeholder="Type your message...">
+            <label for="file-input" class="btn btn-dark attach-btn" title="Attach file">
+                <i class="fas fa-paperclip"></i>
+                <input type="file" id="file-input" class="d-none" accept="image/*,.pdf,.doc,.docx">
+            </label>
             <button type="submit" class="btn btn-primary">Send</button>
         </form>
     </div>
@@ -65,36 +80,74 @@ const socket = io();
 const messagesDiv = document.getElementById('messages');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
+const fileInput = document.getElementById('file-input');
 const sidebar = document.getElementById('contactsSidebar');
 
 function toggleSidebar() {
     sidebar.classList.toggle('show');
 }
 
-messageForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const message = messageInput.value.trim();
-    if (message) {
-        socket.emit('send_message', { 
-            message: message,
-            chat_id: '{{ active_chat.id if active_chat else "" }}'
-        });
-        messageInput.value = '';
-    }
-});
-
-socket.on('new_message', (data) => {
+function createMessageElement(data) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${data.sender_id === {{ current_user.id }} ? 'message-own' : ''}`;
+    
+    let contentHTML = '';
+    if (data.message_type === 'image') {
+        contentHTML = `<img src="${data.file_path}" alt="Shared image" class="message-image">`;
+    } else if (data.message_type === 'file') {
+        contentHTML = `
+            <div class="file-attachment">
+                <i class="fas fa-file"></i>
+                <a href="${data.file_path}" target="_blank" class="file-link">
+                    ${data.file_name}
+                </a>
+            </div>`;
+    } else {
+        contentHTML = data.message;
+    }
+
     messageDiv.innerHTML = `
         <div class="message-header">
             <span>${data.username}</span>
             <span>${data.timestamp}</span>
         </div>
         <div class="message-content">
-            ${data.message}
+            ${contentHTML}
         </div>
     `;
+    return messageDiv;
+}
+
+messageForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = messageInput.value.trim();
+    const file = fileInput.files[0];
+    
+    if (!message && !file) return;
+    
+    const formData = new FormData();
+    if (message) formData.append('message', message);
+    if (file) formData.append('file', file);
+    formData.append('chat_id', '{{ active_chat.id if active_chat else "" }}');
+    
+    try {
+        const response = await fetch('/send_message', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Failed to send message');
+        
+        messageInput.value = '';
+        fileInput.value = '';
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+    }
+});
+
+socket.on('new_message', (data) => {
+    const messageDiv = createMessageElement(data);
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
