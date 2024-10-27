@@ -58,16 +58,16 @@
                         </div>
                     {% endif %}
                 </div>
-                {% if message.message_type in ['image', 'file'] %}
                 <div class="upload-progress" style="display: none;">
                     <div class="upload-progress-bar" style="width: 0%"></div>
                 </div>
-                {% endif %}
             </div>
             {% endfor %}
         </div>
         
+        {% if active_chat %}
         <form class="message-form" id="message-form" enctype="multipart/form-data">
+            <input type="hidden" id="chat-id" value="{{ active_chat.id }}">
             <input type="text" class="form-control message-input" id="message-input" placeholder="Type your message...">
             <label for="file-input" class="btn btn-dark attach-btn" title="Attach file">
                 <i class="fas fa-paperclip"></i>
@@ -75,6 +75,7 @@
             </label>
             <button type="submit" class="btn btn-primary">Send</button>
         </form>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -92,9 +93,8 @@ const messagesDiv = document.getElementById('messages');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
 const fileInput = document.getElementById('file-input');
+const chatIdInput = document.getElementById('chat-id');
 const sidebar = document.getElementById('contactsSidebar');
-
-let currentUpload = null;
 
 function toggleSidebar() {
     sidebar.classList.toggle('show');
@@ -129,13 +129,6 @@ function createMessageElement(data) {
         </div>
     `;
 
-    if (data.message_type === 'image' || data.message_type === 'file') {
-        const progressDiv = document.createElement('div');
-        progressDiv.className = 'upload-progress';
-        progressDiv.innerHTML = '<div class="upload-progress-bar"></div>';
-        messageDiv.appendChild(progressDiv);
-    }
-
     return messageDiv;
 }
 
@@ -152,9 +145,11 @@ async function handleFileUpload(file, formData) {
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    const progressBar = messageDiv.querySelector('.upload-progress-bar');
-    const progressDiv = messageDiv.querySelector('.upload-progress');
-    progressDiv.style.display = 'block';
+    const progressBar = document.createElement('div');
+    progressBar.className = 'upload-progress';
+    progressBar.innerHTML = '<div class="upload-progress-bar" style="width: 0%"></div>';
+    messageDiv.appendChild(progressBar);
+    progressBar.style.display = 'block';
 
     try {
         const xhr = new XMLHttpRequest();
@@ -163,46 +158,49 @@ async function handleFileUpload(file, formData) {
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percentComplete = (e.loaded / e.total) * 100;
-                progressBar.style.width = percentComplete + '%';
+                progressBar.querySelector('.upload-progress-bar').style.width = percentComplete + '%';
             }
         };
 
         return new Promise((resolve, reject) => {
             xhr.onload = () => {
                 if (xhr.status === 200) {
-                    progressDiv.style.display = 'none';
-                    resolve(xhr.response);
+                    progressBar.style.display = 'none';
+                    resolve(JSON.parse(xhr.response));
                 } else {
-                    progressDiv.style.backgroundColor = 'var(--bs-danger)';
-                    reject(new Error('Upload failed'));
+                    progressBar.style.backgroundColor = 'var(--bs-danger)';
+                    messageDiv.remove();
+                    reject(new Error(xhr.response));
                 }
             };
 
             xhr.onerror = () => {
-                progressDiv.style.backgroundColor = 'var(--bs-danger)';
+                progressBar.style.backgroundColor = 'var(--bs-danger)';
+                messageDiv.remove();
                 reject(new Error('Network error'));
             };
 
             xhr.send(formData);
         });
     } catch (error) {
-        console.error('Error uploading file:', error);
         messageDiv.remove();
         throw error;
     }
 }
 
-messageForm.addEventListener('submit', async (e) => {
+messageForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
     const message = messageInput.value.trim();
     const file = fileInput.files[0];
+    const chatId = chatIdInput.value;
     
-    if (!message && !file) return;
+    if ((!message && !file) || !chatId) return;
     
     const formData = new FormData();
     if (message) formData.append('message', message);
     if (file) formData.append('file', file);
-    formData.append('chat_id', '{{ active_chat.id if active_chat else "" }}');
+    formData.append('chat_id', chatId);
     
     try {
         if (file) {
@@ -213,7 +211,10 @@ messageForm.addEventListener('submit', async (e) => {
                 body: formData
             });
             
-            if (!response.ok) throw new Error('Failed to send message');
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to send message');
+            }
         }
         
         messageInput.value = '';
@@ -223,7 +224,7 @@ messageForm.addEventListener('submit', async (e) => {
         console.error('Error sending message:', error);
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-message';
-        errorDiv.textContent = 'Failed to send message. Please try again.';
+        errorDiv.textContent = error.message || 'Failed to send message. Please try again.';
         messageForm.appendChild(errorDiv);
         setTimeout(() => errorDiv.remove(), 3000);
     }
@@ -232,8 +233,9 @@ messageForm.addEventListener('submit', async (e) => {
 // Socket event handlers
 socket.on('connect', () => {
     console.log('Connected to server');
-    if ('{{ active_chat.id if active_chat else "" }}') {
-        socket.emit('join', { room: '{{ active_chat.id }}' });
+    const chatId = chatIdInput?.value;
+    if (chatId) {
+        socket.emit('join', { room: chatId });
     }
 });
 
@@ -243,6 +245,15 @@ socket.on('disconnect', () => {
 
 socket.on('connect_error', (error) => {
     console.error('Connection error:', error);
+});
+
+socket.on('message_error', (data) => {
+    console.error('Message error:', data.error);
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = data.error;
+    messageForm.appendChild(errorDiv);
+    setTimeout(() => errorDiv.remove(), 3000);
 });
 
 socket.on('new_message', (data) => {

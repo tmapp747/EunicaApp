@@ -2,7 +2,7 @@
     --message-bg: #2b2d31;
     --message-hover: #313338;
     --message-text: #dcddde;
-    --input-bg: #383a40;
+    --input-bg: var(--bs-blue);
     --chat-bg: #313338;
     --sidebar-width: 280px;
     --header-height: 56px;
@@ -44,7 +44,7 @@ body {
 }
 
 .login-form .btn-primary {
-    background: #0D6EFD;
+    background: var(--bs-blue);
     border: none;
     padding: 0.75rem;
     font-size: 1rem;
@@ -170,7 +170,7 @@ body {
 }
 
 .message {
-    background: var(--bs-blue);
+    background: var(--bs-green);
     color: white;
     margin-bottom: 1rem;
     padding: 0.75rem;
@@ -181,7 +181,7 @@ body {
 
 .message-own {
     margin-left: auto;
-    background: var(--bs-green);
+    background: var(--bs-blue) !important;
 }
 
 .message-header {
@@ -257,16 +257,20 @@ body {
 
 .message-input {
     flex: 1;
-    background: var(--input-bg) !important;
+    background: var(--bs-blue) !important;
     border: none !important;
-    color: var(--message-text) !important;
+    color: white !important;
     padding: 0.75rem 1rem !important;
     border-radius: 8px !important;
 }
 
+.message-input::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
 .message-input:focus {
     box-shadow: none !important;
-    background: var(--input-bg) !important;
+    background: var(--bs-blue) !important;
 }
 
 .attach-btn {
