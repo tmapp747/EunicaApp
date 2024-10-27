@@ -1,7 +1,7 @@
 from app import app, socketio, db
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_user, logout_user, login_required
-from models import User, Message
+from models import User, Message, ChatRoom
 
 STATIC_USERS = {
     'Bossm': 'Bossm143',
@@ -22,11 +22,42 @@ def initialize_users():
                 db.session.add(user)
         db.session.commit()
 
+def get_or_create_chat(user1, user2):
+    # Check if a direct chat between these users already exists
+    chat = ChatRoom.query.filter(
+        ChatRoom.is_group == False,
+        ChatRoom.users.contains(user1),
+        ChatRoom.users.contains(user2)
+    ).first()
+    
+    if not chat:
+        chat = ChatRoom(name=f"{user1.username}-{user2.username}", is_group=False)
+        chat.users.append(user1)
+        chat.users.append(user2)
+        db.session.add(chat)
+        db.session.commit()
+    
+    return chat
+
 @app.route('/')
 @login_required
 def index():
-    messages = Message.query.order_by(Message.timestamp.asc()).all()
-    return render_template('chat.html', messages=messages)
+    return redirect(url_for('chat'))
+
+@app.route('/chat')
+@app.route('/chat/<int:user_id>')
+@login_required
+def chat(user_id=None):
+    users = User.query.all()
+    active_chat = None
+    messages = []
+
+    if user_id:
+        chat_partner = User.query.get_or_404(user_id)
+        active_chat = get_or_create_chat(current_user, chat_partner)
+        messages = Message.query.filter_by(chatroom_id=active_chat.id).order_by(Message.timestamp.asc()).all()
+
+    return render_template('chat.html', users=users, active_chat=active_chat, messages=messages)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

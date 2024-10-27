@@ -8,12 +8,27 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(256))
     messages = db.relationship('Message', backref='sender', lazy='dynamic')
+    chatrooms = db.relationship('ChatRoom', secondary='user_chatroom', back_populates='users')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+class ChatRoom(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64))
+    is_group = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    users = db.relationship('User', secondary='user_chatroom', back_populates='chatrooms')
+    messages = db.relationship('Message', backref='chatroom', lazy='dynamic')
+
+# Association table for User-ChatRoom many-to-many relationship
+user_chatroom = db.Table('user_chatroom',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('chatroom_id', db.Integer, db.ForeignKey('chat_room.id'), primary_key=True)
+)
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -23,6 +38,7 @@ class Message(db.Model):
     file_name = db.Column(db.String(255))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    chatroom_id = db.Column(db.Integer, db.ForeignKey('chat_room.id'), nullable=False)
 
 @login_manager.user_loader
 def load_user(id):

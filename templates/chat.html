@@ -1,45 +1,100 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="chat-container">
-    <div class="messages" id="messages">
-        {% for message in messages %}
-        <div class="message">
-            <div class="message-header">
-                <span>{{ message.sender.username }}</span>
-                <span>{{ message.timestamp.strftime('%H:%M') }}</span>
+<div class="chat-layout">
+    <div class="contacts-sidebar" id="contactsSidebar">
+        <div class="sidebar-header">
+            <button class="btn btn-primary btn-sm w-100 mb-3">New Group</button>
+            <button class="btn btn-dark btn-sm sidebar-toggle d-md-none" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="contacts-list">
+            {% for user in users %}
+                {% if user.id != current_user.id %}
+                <div class="contact-item {% if active_chat and active_chat.id == user.id %}active{% endif %}" 
+                     onclick="location.href='{{ url_for('chat', user_id=user.id) }}'">
+                    <div class="contact-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="contact-info">
+                        <div class="contact-name">{{ user.username }}</div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="chat-main">
+        {% if active_chat %}
+        <div class="chat-header">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-dark d-md-none me-2" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                {% if active_chat.is_group %}
+                <i class="fas fa-users me-2"></i>
+                {% else %}
+                <i class="fas fa-user me-2"></i>
+                {% endif %}
+                <span class="chat-title">{{ active_chat.name }}</span>
             </div>
-            <div class="message-content">
-                {{ message.content }}
+            <div class="chat-actions">
+                <button class="btn btn-dark call-btn"><i class="fas fa-phone"></i></button>
+                <button class="btn btn-dark call-btn ms-2"><i class="fas fa-video"></i></button>
             </div>
         </div>
-        {% endfor %}
+        {% endif %}
+        
+        <div class="messages" id="messages">
+            {% for message in messages %}
+            <div class="message {% if message.sender_id == current_user.id %}message-own{% endif %}">
+                <div class="message-header">
+                    <span>{{ message.sender.username }}</span>
+                    <span>{{ message.timestamp.strftime('%H:%M') }}</span>
+                </div>
+                <div class="message-content">
+                    {{ message.content }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <form class="message-form" id="message-form">
+            <input type="text" class="form-control message-input" id="message-input" placeholder="Type your message..." required>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
     </div>
-    
-    <form class="message-form" id="message-form">
-        <input type="text" class="form-control message-input" id="message-input" placeholder="Type your message..." required>
-        <button type="submit" class="btn btn-primary">Send</button>
-    </form>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 const socket = io();
 const messagesDiv = document.getElementById('messages');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
 
+function toggleSidebar() {
+    const sidebar = document.getElementById('contactsSidebar');
+    sidebar.classList.toggle('show');
+}
+
 messageForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = messageInput.value.trim();
     if (message) {
-        socket.emit('send_message', { message: message });
+        socket.emit('send_message', { 
+            message: message,
+            chat_id: '{{ active_chat.id if active_chat else "" }}'
+        });
         messageInput.value = '';
     }
 });
 
 socket.on('new_message', (data) => {
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'message';
+    messageDiv.className = `message ${data.sender_id === {{ current_user.id }} ? 'message-own' : ''}`;
     messageDiv.innerHTML = `
         <div class="message-header">
             <span>${data.username}</span>
