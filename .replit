@@ -23,6 +23,10 @@ args = "Flask SocketIO Server"
 task = "workflow.run"
 args = "Flask Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Eunica Messenger"
+
 [[workflows.workflow]]
 name = "Band Messenger"
 author = "agent"
@@ -49,6 +53,18 @@ waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Flask Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Eunica Messenger"
 author = "agent"
 
 [workflows.workflow.metadata]
