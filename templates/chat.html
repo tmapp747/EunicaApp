@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="chat-layout">
-    <div class="contacts-sidebar collapsed" id="contactsSidebar">
+    <div class="contacts-sidebar" id="contactsSidebar">
         <div class="sidebar-header">
             <button class="btn btn-primary btn-sm w-100 mb-3">New Group</button>
         </div>
@@ -26,7 +26,7 @@
         {% if active_chat %}
         <div class="chat-header">
             <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-dark d-block" onclick="toggleSidebar()">
+                <button class="hamburger-btn d-md-none" onclick="toggleSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
                 <span class="chat-title">{{ chat_partner.username }}</span>
@@ -101,9 +101,11 @@ socket.on('new_message', (data) => {
 // Auto-scroll to bottom on page load
 messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-// Close sidebar when clicking outside
+// Close sidebar when clicking outside on mobile
 document.addEventListener('click', (e) => {
-    if (!sidebar.contains(e.target) && !e.target.closest('[onclick="toggleSidebar()"]')) {
+    if (!sidebar.contains(e.target) && 
+        !e.target.closest('.hamburger-btn') && 
+        window.innerWidth < 768) {
         sidebar.classList.remove('show');
     }
 });

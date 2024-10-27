@@ -31,15 +31,10 @@ body {
     flex-direction: column;
     height: 100%;
     position: fixed;
-    left: -var(--sidebar-width);
     top: var(--header-height);
     bottom: 0;
     z-index: 1000;
     transition: left 0.3s ease;
-}
-
-.contacts-sidebar.show {
-    left: 0;
 }
 
 .sidebar-header {
@@ -95,13 +90,31 @@ body {
     font-weight: 500;
 }
 
+/* Hamburger Menu Button */
+.hamburger-btn {
+    background: transparent;
+    border: none;
+    color: var(--message-text);
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.hamburger-btn:hover {
+    background-color: var(--message-hover);
+}
+
 /* Chat Main Area */
 .chat-main {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    margin-left: 0;
 }
 
 .chat-header {
@@ -125,7 +138,38 @@ body {
     font-size: 1.1rem;
 }
 
-/* Call button styles */
+/* Media Queries */
+@media (min-width: 768px) {
+    .contacts-sidebar {
+        position: relative;
+        left: 0;
+        width: var(--sidebar-width);
+    }
+    
+    .hamburger-btn {
+        display: none;
+    }
+    
+    .chat-main {
+        margin-left: var(--sidebar-width);
+    }
+}
+
+@media (max-width: 767px) {
+    .contacts-sidebar {
+        left: -100%;
+    }
+    
+    .contacts-sidebar.show {
+        left: 0;
+    }
+    
+    .chat-main {
+        margin-left: 0;
+    }
+}
+
+/* Rest of the existing styles */
 .call-btn {
     border-radius: 50%;
     transition: background-color 0.2s;
@@ -140,7 +184,6 @@ body {
     color: var(--message-text);
 }
 
-/* Messages Area */
 .messages {
     flex: 1;
     overflow-y: auto;
