@@ -14,6 +14,17 @@ body {
     background: var(--chat-bg) !important;
 }
 
+/* Header Styles */
+.header-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
 /* Chat Layout */
 .chat-layout {
     height: calc(100vh - var(--header-height));
