@@ -18,6 +18,9 @@ class User(UserMixin, db.Model):
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(1000), nullable=False)
+    message_type = db.Column(db.String(20), default='text')  # text, image, file, voice
+    file_path = db.Column(db.String(255))
+    file_name = db.Column(db.String(255))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 

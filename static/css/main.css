@@ -10,6 +10,28 @@
 body {
     height: 100vh;
     overflow: hidden;
+    background: var(--chat-bg) !important;
+}
+
+/* Call button styles */
+.call-btn {
+    padding: 0.5rem;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.call-btn:hover {
+    background-color: var(--message-hover) !important;
+}
+
+.call-btn i {
+    font-size: 1rem;
+    color: var(--message-text);
 }
 
 .chat-container {
@@ -87,40 +109,63 @@ body {
     align-items: center;
     justify-content: center;
     background: var(--chat-bg);
+    padding: 1rem;
 }
 
 .login-card {
     background: var(--message-bg);
-    border: none;
-    border-radius: 12px;
-    padding: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 2.5rem;
     width: 100%;
     max-width: 400px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .login-title {
     color: var(--message-text);
     text-align: center;
     margin-bottom: 2rem;
-    font-size: 1.5rem;
+    font-size: 2rem;
+    font-weight: 600;
 }
 
 .login-form .form-control {
     background: var(--input-bg);
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--message-text);
-    padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
 }
 
 .login-form .form-control:focus {
-    box-shadow: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
     background: var(--input-bg);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .login-form .btn-primary {
     width: 100%;
-    padding: 0.75rem;
-    border-radius: 8px;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--bs-primary);
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.login-form .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.alert {
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
 }

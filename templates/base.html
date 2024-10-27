@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Eunica Messenger</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -14,6 +15,8 @@
             <span class="navbar-brand mb-0 h1">Eunica</span>
             {% if current_user.is_authenticated %}
             <div class="d-flex align-items-center">
+                <button class="btn btn-dark me-2 call-btn"><i class="fas fa-phone"></i></button>
+                <button class="btn btn-dark me-3 call-btn"><i class="fas fa-video"></i></button>
                 <span class="me-3">{{ current_user.username }}</span>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
             </div>
