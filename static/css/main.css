@@ -14,7 +14,6 @@ body {
     background: var(--chat-bg) !important;
 }
 
-/* Login Styles */
 .login-container {
     height: calc(100vh - var(--header-height));
     display: flex;
@@ -51,7 +50,6 @@ body {
     margin-top: 0.5rem;
 }
 
-/* Header Styles */
 .header-title {
     position: absolute;
     left: 50%;
@@ -62,7 +60,6 @@ body {
     white-space: nowrap;
 }
 
-/* Chat Layout */
 .chat-layout {
     height: calc(100vh - var(--header-height));
     display: flex;
@@ -70,7 +67,6 @@ body {
     position: relative;
 }
 
-/* Sidebar Styles */
 .contacts-sidebar {
     width: var(--sidebar-width);
     background: var(--message-bg);
@@ -138,7 +134,6 @@ body {
     font-weight: 500;
 }
 
-/* Chat Main Area */
 .chat-main {
     flex: 1;
     display: flex;
@@ -159,7 +154,6 @@ body {
     font-size: 1.1rem;
 }
 
-/* Messages Area */
 .messages {
     flex: 1;
     overflow-y: auto;
@@ -170,7 +164,7 @@ body {
 }
 
 .message {
-    background: var(--bs-green);
+    background: var(--bs-blue);
     color: white;
     margin-bottom: 1rem;
     padding: 0.75rem;
@@ -181,7 +175,7 @@ body {
 
 .message-own {
     margin-left: auto;
-    background: var(--bs-blue) !important;
+    background: var(--bs-green) !important;
 }
 
 .message-header {
@@ -199,14 +193,15 @@ body {
     word-break: break-word;
 }
 
-/* Media Content Styles */
 .message-image {
     max-width: 100%;
+    height: auto;
     max-height: 300px;
     border-radius: 8px;
     margin-top: 8px;
     cursor: pointer;
     transition: transform 0.2s;
+    display: block;
 }
 
 .message-image:hover {
@@ -242,7 +237,24 @@ body {
     color: white;
 }
 
-/* Message Form */
+.upload-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+    display: none;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: var(--bs-primary);
+    transition: width 0.3s ease;
+}
+
 .message-form {
     position: fixed;
     bottom: 0;
@@ -290,32 +302,15 @@ body {
     background-color: var(--message-hover) !important;
 }
 
-/* Progress Bar */
-.upload-progress {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 0 0 8px 8px;
-    overflow: hidden;
-}
-
-.upload-progress-bar {
-    height: 100%;
-    background: var(--bs-primary);
-    transition: width 0.3s ease;
-}
-
-/* Error Message */
 .error-message {
     color: var(--bs-danger);
     font-size: 0.875rem;
     margin-top: 0.5rem;
+    position: absolute;
+    bottom: -1.5rem;
+    left: 1rem;
 }
 
-/* Media Queries */
 @media (min-width: 768px) {
     .contacts-sidebar {
         position: fixed;

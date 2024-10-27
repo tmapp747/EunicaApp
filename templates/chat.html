@@ -48,18 +48,21 @@
                     {% if message.message_type == 'text' %}
                         {{ message.content }}
                     {% elif message.message_type == 'image' %}
-                        <img src="{{ url_for('static', filename=message.file_path) }}" alt="Shared image" class="message-image">
+                        {% if message.content %}
+                            <p>{{ message.content }}</p>
+                        {% endif %}
+                        <img src="{{ url_for('static', filename=message.file_path) }}" alt="Shared image" class="message-image" onclick="window.open(this.src)">
                     {% elif message.message_type == 'file' %}
+                        {% if message.content %}
+                            <p>{{ message.content }}</p>
+                        {% endif %}
                         <div class="file-attachment">
                             <i class="fas fa-file"></i>
-                            <a href="{{ url_for('static', filename=message.file_path) }}" target="_blank" class="file-link">
+                            <a href="{{ url_for('static', filename=message.file_path) }}" target="_blank" class="file-link" download>
                                 {{ message.file_name }}
                             </a>
                         </div>
                     {% endif %}
-                </div>
-                <div class="upload-progress" style="display: none;">
-                    <div class="upload-progress-bar" style="width: 0%"></div>
                 </div>
             </div>
             {% endfor %}
@@ -104,82 +107,99 @@ function createMessageElement(data) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${data.sender_id === {{ current_user.id }} ? 'message-own' : ''}`;
     
-    let contentHTML = '';
-    if (data.message_type === 'image') {
-        contentHTML = `<img src="${data.file_path}" alt="Shared image" class="message-image">`;
-    } else if (data.message_type === 'file') {
-        contentHTML = `
-            <div class="file-attachment">
-                <i class="fas fa-file"></i>
-                <a href="${data.file_path}" target="_blank" class="file-link">
-                    ${data.file_name}
-                </a>
-            </div>`;
-    } else {
-        contentHTML = data.message;
-    }
-
-    messageDiv.innerHTML = `
-        <div class="message-header">
-            <span>${data.username}</span>
-            <span>${data.timestamp}</span>
-        </div>
-        <div class="message-content">
-            ${contentHTML}
-        </div>
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'message-header';
+    headerDiv.innerHTML = `
+        <span>${data.username}</span>
+        <span>${data.timestamp}</span>
     `;
-
+    messageDiv.appendChild(headerDiv);
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    
+    if (data.message && data.message.trim()) {
+        const textP = document.createElement('p');
+        textP.textContent = data.message;
+        contentDiv.appendChild(textP);
+    }
+    
+    if (data.message_type === 'image' && data.file_path) {
+        const img = document.createElement('img');
+        img.src = data.file_path;
+        img.alt = 'Shared image';
+        img.className = 'message-image';
+        img.onclick = () => window.open(img.src);
+        contentDiv.appendChild(img);
+    } else if (data.message_type === 'file' && data.file_path) {
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'file-attachment';
+        fileDiv.innerHTML = `
+            <i class="fas fa-file"></i>
+            <a href="${data.file_path}" target="_blank" class="file-link" download>
+                ${data.file_name}
+            </a>
+        `;
+        contentDiv.appendChild(fileDiv);
+    }
+    
+    messageDiv.appendChild(contentDiv);
     return messageDiv;
 }
 
 async function handleFileUpload(file, formData) {
+    if (!file || !formData) return;
+    
     const messageDiv = createMessageElement({
-        message: '',
+        message: messageInput.value.trim(),
         message_type: file.type.startsWith('image/') ? 'image' : 'file',
         username: '{{ current_user.username }}',
         sender_id: {{ current_user.id }},
         timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
         file_name: file.name
     });
-
+    
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
+    
+    const progressDiv = document.createElement('div');
+    progressDiv.className = 'upload-progress';
     const progressBar = document.createElement('div');
-    progressBar.className = 'upload-progress';
-    progressBar.innerHTML = '<div class="upload-progress-bar" style="width: 0%"></div>';
-    messageDiv.appendChild(progressBar);
-    progressBar.style.display = 'block';
-
+    progressBar.className = 'upload-progress-bar';
+    progressDiv.appendChild(progressBar);
+    messageDiv.appendChild(progressDiv);
+    progressDiv.style.display = 'block';
+    
     try {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/send_message', true);
-
+        
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
-                const percentComplete = (e.loaded / e.total) * 100;
-                progressBar.querySelector('.upload-progress-bar').style.width = percentComplete + '%';
+                const percent = (e.loaded / e.total) * 100;
+                progressBar.style.width = `${percent}%`;
             }
         };
-
+        
         return new Promise((resolve, reject) => {
             xhr.onload = () => {
                 if (xhr.status === 200) {
-                    progressBar.style.display = 'none';
-                    resolve(JSON.parse(xhr.response));
+                    progressDiv.remove();
+                    const response = JSON.parse(xhr.response);
+                    resolve(response);
                 } else {
-                    progressBar.style.backgroundColor = 'var(--bs-danger)';
+                    progressDiv.style.backgroundColor = 'var(--bs-danger)';
                     messageDiv.remove();
                     reject(new Error(xhr.response));
                 }
             };
-
+            
             xhr.onerror = () => {
-                progressBar.style.backgroundColor = 'var(--bs-danger)';
+                progressDiv.style.backgroundColor = 'var(--bs-danger)';
                 messageDiv.remove();
                 reject(new Error('Network error'));
             };
-
+            
             xhr.send(formData);
         });
     } catch (error) {
