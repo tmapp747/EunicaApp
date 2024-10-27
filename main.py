@@ -31,7 +31,10 @@ def get_or_create_chat(user1, user2):
     ).first()
     
     if not chat:
-        chat = ChatRoom(name=f"{user1.username}-{user2.username}", is_group=False)
+        # Set chat name as partner's username
+        chat = ChatRoom()
+        chat.name = user2.username if user1 == current_user else user1.username
+        chat.is_group = False
         chat.users.append(user1)
         chat.users.append(user2)
         db.session.add(chat)
@@ -50,6 +53,7 @@ def index():
 def chat(user_id=None):
     users = User.query.all()
     active_chat = None
+    chat_partner = None
     messages = []
 
     if user_id:
@@ -57,7 +61,7 @@ def chat(user_id=None):
         active_chat = get_or_create_chat(current_user, chat_partner)
         messages = Message.query.filter_by(chatroom_id=active_chat.id).order_by(Message.timestamp.asc()).all()
 
-    return render_template('chat.html', users=users, active_chat=active_chat, messages=messages)
+    return render_template('chat.html', users=users, active_chat=active_chat, chat_partner=chat_partner, messages=messages)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

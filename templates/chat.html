@@ -2,17 +2,14 @@
 
 {% block content %}
 <div class="chat-layout">
-    <div class="contacts-sidebar" id="contactsSidebar">
+    <div class="contacts-sidebar collapsed" id="contactsSidebar">
         <div class="sidebar-header">
             <button class="btn btn-primary btn-sm w-100 mb-3">New Group</button>
-            <button class="btn btn-dark btn-sm sidebar-toggle d-md-none" onclick="toggleSidebar()">
-                <i class="fas fa-bars"></i>
-            </button>
         </div>
         <div class="contacts-list">
             {% for user in users %}
                 {% if user.id != current_user.id %}
-                <div class="contact-item {% if active_chat and active_chat.id == user.id %}active{% endif %}" 
+                <div class="contact-item {% if active_chat and chat_partner and chat_partner.id == user.id %}active{% endif %}" 
                      onclick="location.href='{{ url_for('chat', user_id=user.id) }}'">
                     <div class="contact-avatar">
                         <i class="fas fa-user"></i>
@@ -28,20 +25,13 @@
     <div class="chat-main">
         {% if active_chat %}
         <div class="chat-header">
-            <div class="d-flex align-items-center">
-                <button class="btn btn-dark d-md-none me-2" onclick="toggleSidebar()">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-dark d-block" onclick="toggleSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
-                {% if active_chat.is_group %}
-                <i class="fas fa-users me-2"></i>
-                {% else %}
-                <i class="fas fa-user me-2"></i>
-                {% endif %}
-                <span class="chat-title">{{ active_chat.name }}</span>
-            </div>
-            <div class="chat-actions">
+                <span class="chat-title">{{ chat_partner.username }}</span>
                 <button class="btn btn-dark call-btn"><i class="fas fa-phone"></i></button>
-                <button class="btn btn-dark call-btn ms-2"><i class="fas fa-video"></i></button>
+                <button class="btn btn-dark call-btn"><i class="fas fa-video"></i></button>
             </div>
         </div>
         {% endif %}
@@ -74,9 +64,9 @@ const socket = io();
 const messagesDiv = document.getElementById('messages');
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('message-input');
+const sidebar = document.getElementById('contactsSidebar');
 
 function toggleSidebar() {
-    const sidebar = document.getElementById('contactsSidebar');
     sidebar.classList.toggle('show');
 }
 
@@ -110,5 +100,12 @@ socket.on('new_message', (data) => {
 
 // Auto-scroll to bottom on page load
 messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !e.target.closest('[onclick="toggleSidebar()"]')) {
+        sidebar.classList.remove('show');
+    }
+});
 </script>
 {% endblock %}
