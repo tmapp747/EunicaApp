@@ -13,16 +13,26 @@ def handle_connect():
     if not current_user.is_authenticated:
         logger.warning("Unauthenticated user attempted to connect")
         return False
-    logger.info(f"User {current_user.username} connected")
-    join_room(f'user_{current_user.id}')
-    emit('connection_established', {'user_id': current_user.id, 'username': current_user.username})
+    
+    user_room = f'user_{current_user.id}'
+    logger.info(f"User {current_user.username} connected, joining room {user_room}")
+    join_room(user_room)
+    
+    # Emit connection confirmation
+    emit('connection_established', {
+        'user_id': current_user.id, 
+        'username': current_user.username,
+        'room': user_room
+    })
     return True
 
 @socketio.on('error')
 def handle_error(error):
-    logger.error(f"SocketIO error: {error}")
+    error_msg = str(error)
+    logger.error(f"SocketIO error: {error_msg}")
     if current_user.is_authenticated:
-        logger.error(f"Error for user {current_user.username}: {error}")
+        logger.error(f"Error for user {current_user.username}: {error_msg}")
+        emit('error', {'message': error_msg}, room=f'user_{current_user.id}')
 
 @socketio.on('join')
 def on_join(data):
@@ -36,13 +46,19 @@ def on_join(data):
             logger.error("No room specified in join request")
             return False
         
+        logger.info(f"Join request from {current_user.username} for room: {room}")
+        
         # Handle both chat rooms and user-specific rooms
         if isinstance(room, str) and room.startswith('user_'):
             user_id = room.split('_')[1]
             if str(current_user.id) == user_id:
                 join_room(room)
                 logger.info(f"User {current_user.username} joined notification room {room}")
-                emit('room_joined', {'room': room, 'type': 'notification'})
+                emit('room_joined', {
+                    'room': room,
+                    'type': 'notification',
+                    'timestamp': datetime.now().strftime('%H:%M')
+                })
                 return True
             else:
                 logger.warning(f"User {current_user.username} attempted to join unauthorized notification room {room}")
@@ -50,16 +66,23 @@ def on_join(data):
         else:
             chatroom = ChatRoom.query.get(room)
             if chatroom and current_user in chatroom.users:
-                join_room(str(room))
-                logger.info(f"User {current_user.username} joined chat room {room}")
-                emit('room_joined', {'room': str(room), 'type': 'chat'})
+                room_id = str(room)
+                join_room(room_id)
+                logger.info(f"User {current_user.username} joined chat room {room_id}")
+                emit('room_joined', {
+                    'room': room_id,
+                    'type': 'chat',
+                    'timestamp': datetime.now().strftime('%H:%M')
+                })
                 return True
             else:
                 logger.warning(f"User {current_user.username} attempted to join unauthorized chat room {room}")
                 return False
         
     except Exception as e:
-        logger.error(f"Error joining room: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"Error joining room: {error_msg}")
+        emit('error', {'message': error_msg}, room=f'user_{current_user.id}')
         return False
 
 @socketio.on('leave')
@@ -75,7 +98,9 @@ def on_leave(data):
             return True
             
     except Exception as e:
-        logger.error(f"Error leaving room: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"Error leaving room: {error_msg}")
+        emit('error', {'message': error_msg}, room=f'user_{current_user.id}')
         return False
 
 @socketio.on('send_message')
@@ -98,13 +123,14 @@ def handle_message(data):
         file_name = data.get('file_name')
         
         # Create and save message
-        message = Message()
-        message.content = message_content
-        message.message_type = message_type
-        message.file_path = file_path
-        message.file_name = file_name
-        message.sender_id = current_user.id
-        message.chatroom_id = chat_id
+        message = Message(
+            content=message_content,
+            message_type=message_type,
+            file_path=file_path,
+            file_name=file_name,
+            sender_id=current_user.id,
+            chatroom_id=chat_id
+        )
         
         db.session.add(message)
         db.session.commit()
@@ -123,7 +149,7 @@ def handle_message(data):
         }
         
         # Emit message to chat room
-        emit('new_message', message_data, to=str(chat_id))
+        emit('new_message', message_data, room=str(chat_id))
         
         # Prepare and send notifications to other users
         notification_data = {
@@ -138,13 +164,14 @@ def handle_message(data):
         for user in chatroom.users:
             if user.id != current_user.id:
                 user_room = f'user_{user.id}'
-                emit('new_notification', notification_data, to=user_room)
-                logger.info(f"Sent notification to user {user.username} in room {user_room}")
+                logger.info(f"Sending notification to user {user.username} in room {user_room}")
+                emit('new_notification', notification_data, room=user_room)
         
         return True
         
     except Exception as e:
-        logger.error(f"Error handling message: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"Error handling message: {error_msg}")
         db.session.rollback()
-        emit('message_error', {'error': str(e)}, to=str(data.get('chat_id')) if data.get('chat_id') else None)
+        emit('error', {'message': error_msg}, room=f'user_{current_user.id}')
         return False

@@ -66,13 +66,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     {% if current_user.is_authenticated %}
     <script>
+        console.log('Initializing socket connection for user:', '{{ current_user.username }}');
+        
         // Initialize socket connection with options
         let socket = io({
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
-            timeout: 20000
+            timeout: 20000,
+            transports: ['websocket', 'polling']
         });
 
         const notificationBell = document.getElementById('notificationBell');
@@ -87,34 +90,39 @@
             const sidebar = document.getElementById('contactsSidebar');
             if (sidebar) {
                 sidebar.classList.toggle('show');
-                console.log('Sidebar toggled:', sidebar.classList.contains('show'));
+                console.log('UI: Sidebar toggled:', sidebar.classList.contains('show'));
             }
         };
 
         // Socket connection events
         socket.on('connect', () => {
-            console.log('Socket connected successfully');
+            console.log('Socket: Connected successfully');
             const userRoom = `user_{{ current_user.id }}`;
+            console.log('Socket: Joining user room:', userRoom);
             socket.emit('join', { room: userRoom }, (response) => {
-                console.log('Join room response:', response);
+                console.log('Socket: Join room response:', response);
             });
         });
 
         socket.on('disconnect', () => {
-            console.log('Socket disconnected');
+            console.log('Socket: Disconnected');
         });
 
         socket.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
+            console.error('Socket: Connection error:', error);
         });
 
         socket.on('error', (error) => {
-            console.error('Socket error:', error);
+            console.error('Socket: General error:', error);
+        });
+
+        socket.on('room_joined', (data) => {
+            console.log('Socket: Room joined:', data);
         });
 
         // Notification functions
         function updateNotificationBadge() {
-            console.log('Updating notification badge, count:', unreadCount);
+            console.log('UI: Updating notification badge, count:', unreadCount);
             if (unreadCount > 0) {
                 notificationBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
                 notificationBadge.style.display = 'block';
@@ -124,7 +132,16 @@
         }
 
         function addNotification(data) {
-            console.log('Adding notification:', data);
+            console.log('UI: Adding notification:', data);
+            const notificationList = document.getElementById('notificationList');
+            const notificationBadge = document.getElementById('notificationBadge');
+            
+            if (!notificationList || !notificationBadge) {
+                console.error('UI: Notification elements not found');
+                return;
+            }
+            
+            // Create notification element
             const notification = document.createElement('div');
             notification.className = 'notification-item';
             notification.innerHTML = `
@@ -134,13 +151,15 @@
                 </div>
             `;
             
+            // Add click handler
             notification.addEventListener('click', () => {
+                console.log('UI: Notification clicked, data:', data);
                 if (data.chat_id) {
-                    console.log('Navigating to chat:', data.chat_id);
-                    window.location.href = `/chat/${data.chat_id}`;
+                    window.location.href = '/chat/' + data.chat_id;
                 }
             });
             
+            // Update UI
             notificationList.insertBefore(notification, notificationList.firstChild);
             notifications.push(data);
             unreadCount++;
@@ -156,7 +175,7 @@
         }
 
         function clearAllNotifications() {
-            console.log('Clearing all notifications');
+            console.log('UI: Clearing all notifications');
             notificationList.innerHTML = '';
             notifications = [];
             unreadCount = 0;
@@ -167,7 +186,7 @@
         // Notification UI events
         notificationBell.addEventListener('click', (e) => {
             e.stopPropagation();
-            console.log('Notification bell clicked');
+            console.log('UI: Notification bell clicked');
             notificationDropdown.classList.toggle('show');
             if (notificationDropdown.classList.contains('show')) {
                 unreadCount = 0;
@@ -185,16 +204,20 @@
         // Request notification permission
         if ('Notification' in window) {
             if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-                console.log('Requesting notification permission');
+                console.log('UI: Requesting notification permission');
                 Notification.requestPermission().then(permission => {
-                    console.log('Notification permission:', permission);
+                    console.log('UI: Notification permission:', permission);
                 });
             }
         }
 
         // Listen for new notifications
         socket.on('new_notification', (data) => {
-            console.log('Received new notification:', data);
+            console.log('Socket: Received notification:', data);
+            if (!data) {
+                console.error('Socket: Invalid notification data');
+                return;
+            }
             addNotification(data);
         });
     </script>
