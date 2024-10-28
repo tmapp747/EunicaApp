@@ -19,6 +19,49 @@ def handle_connect():
 def handle_error(error):
     logger.error(f"SocketIO error: {error}")
 
+@socketio.on('join')
+def on_join(data):
+    try:
+        if not current_user.is_authenticated:
+            return False
+        
+        room = data.get('room')
+        if not room:
+            return False
+            
+        # Handle both chat rooms and user-specific rooms
+        if room.startswith('user_'):
+            user_id = room.split('_')[1]
+            if str(current_user.id) == user_id:
+                join_room(room)
+                return True
+        else:
+            chatroom = ChatRoom.query.get(room)
+            if chatroom and current_user in chatroom.users:
+                join_room(room)
+                return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error joining room: {str(e)}")
+        return False
+
+@socketio.on('leave')
+def on_leave(data):
+    try:
+        if not current_user.is_authenticated:
+            return False
+        
+        room = data.get('room')
+        if room:
+            leave_room(room)
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error leaving room: {str(e)}")
+        return False
+
 @socketio.on('send_message')
 def handle_message(data):
     try:
@@ -82,40 +125,4 @@ def handle_message(data):
         logger.error(f"Error handling message: {str(e)}")
         emit('message_error', {'error': str(e)}, room=str(chat_id))
         db.session.rollback()
-        return False
-
-@socketio.on('join')
-def on_join(data):
-    try:
-        if not current_user.is_authenticated:
-            return False
-        
-        room = data.get('room')
-        if not room:
-            return False
-        
-        chatroom = ChatRoom.query.get(room)
-        if not chatroom or current_user not in chatroom.users:
-            return False
-        
-        join_room(room)
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error joining room: {str(e)}")
-        return False
-
-@socketio.on('leave')
-def on_leave(data):
-    try:
-        if not current_user.is_authenticated:
-            return False
-        
-        room = data.get('room')
-        if room:
-            leave_room(room)
-            return True
-            
-    except Exception as e:
-        logger.error(f"Error leaving room: {str(e)}")
         return False

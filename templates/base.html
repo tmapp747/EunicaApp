@@ -66,12 +66,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     {% if current_user.is_authenticated %}
     <script>
+        let socket = io();
         const notificationBell = document.getElementById('notificationBell');
         const notificationDropdown = document.getElementById('notificationDropdown');
         const notificationBadge = document.getElementById('notificationBadge');
         const notificationList = document.getElementById('notificationList');
         let unreadCount = 0;
         let notifications = [];
+
+        socket.on('connect', () => {
+            console.log('Connected to notification system');
+            socket.emit('join', { room: `user_{{ current_user.id }}` });
+        });
 
         function updateNotificationBadge() {
             if (unreadCount > 0) {
@@ -91,6 +97,12 @@
                     <div class="notification-time">${data.timestamp}</div>
                 </div>
             `;
+            
+            notification.addEventListener('click', () => {
+                if (data.chat_id) {
+                    window.location.href = `/chat/${data.chat_id}`;
+                }
+            });
             
             notificationList.insertBefore(notification, notificationList.firstChild);
             notifications.push(data);
@@ -134,6 +146,11 @@
                 Notification.requestPermission();
             }
         }
+
+        // Listen for new notifications
+        socket.on('new_notification', (data) => {
+            addNotification(data);
+        });
     </script>
     {% endif %}
     {% block extra_js %}{% endblock %}
