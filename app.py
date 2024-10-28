@@ -284,13 +284,6 @@ def register_error_handlers(app):
 
 register_error_handlers(app)
 
-# Root endpoint
-@app.route('/')
-def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('chat'))
-    return redirect(url_for('login'))
-
 # Health check endpoint
 @app.route('/health')
 @limiter.exempt
