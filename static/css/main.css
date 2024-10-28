@@ -201,27 +201,28 @@ body {
     bottom: 0;
 }
 
-/* Notification Styles */
+/* Updated Notification Styles */
 .notification-bell {
     color: var(--message-text);
     cursor: pointer;
     padding: 0.5rem;
     font-size: 1.25rem;
+    position: relative;
 }
 
 .notification-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: absolute;
-    top: 0;
-    right: 0;
+    top: -5px;
+    right: -5px;
+    min-width: 18px;
+    height: 18px;
     background: var(--bs-danger);
     color: white;
     border-radius: 50%;
-    min-width: 18px;
-    height: 18px;
     font-size: 0.75rem;
-    display: none;
-    text-align: center;
-    line-height: 18px;
     padding: 0 4px;
 }
 
