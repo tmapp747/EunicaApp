@@ -63,6 +63,15 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 # Enhanced security headers
 @app.after_request
 def add_security_headers(response):
+    """
+    Add security headers to the response.
+
+    Args:
+        response (flask.Response): The response object.
+
+    Returns:
+        flask.Response: The response object with added security headers.
+    """
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -72,6 +81,13 @@ def add_security_headers(response):
 
 # Request timeout middleware
 class TimeoutMiddleware:
+    """
+    Middleware to enforce request timeout.
+
+    Args:
+        app (flask.Flask): The Flask application.
+        timeout (int): The timeout duration in seconds.
+    """
     def __init__(self, app, timeout=30):
         self.app = app
         self.timeout = timeout
@@ -204,7 +220,9 @@ login_manager.needs_refresh_message = 'Session timed out, please login again'
 
 # Cleanup tasks
 def cleanup_temp_files():
-    """Clean up temporary files older than 24 hours"""
+    """
+    Clean up temporary files older than 24 hours.
+    """
     try:
         now = time.time()
         for root, dirs, files in os.walk(TEMP_FOLDER):
@@ -217,7 +235,9 @@ def cleanup_temp_files():
         logger.error(f"Error cleaning up temp files: {str(e)}")
 
 def cleanup_expired_sessions():
-    """Clean up expired sessions"""
+    """
+    Clean up expired sessions.
+    """
     try:
         if REDIS_URL and redis_client:
             pattern = f"{cache_config['CACHE_KEY_PREFIX']}session:*"
@@ -232,29 +252,68 @@ def cleanup_expired_sessions():
 @app.route('/static/<path:filename>')
 @cache.cached(timeout=43200)  # 12 hours
 def serve_static(filename):
+    """
+    Serve static files with caching.
+
+    Args:
+        filename (str): The name of the file to serve.
+
+    Returns:
+        flask.Response: The response object with the static file.
+    """
     response = make_response(send_from_directory('static', filename))
     response.headers['Cache-Control'] = 'public, max-age=43200'
     return response
 
 # Schedule cleanup tasks
 def schedule_cleanup():
+    """
+    Schedule cleanup tasks for temporary files and expired sessions.
+    """
     cleanup_temp_files()
     cleanup_expired_sessions()
 
 # Error handlers with improved logging
 @app.errorhandler(404)
 def not_found_error(error):
+    """
+    Handle 404 Not Found errors.
+
+    Args:
+        error (Exception): The error object.
+
+    Returns:
+        flask.Response: The response object with the error message.
+    """
     logger.warning(f"404 error: {request.url}")
     return jsonify({'error': 'Not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
+    """
+    Handle 500 Internal Server errors.
+
+    Args:
+        error (Exception): The error object.
+
+    Returns:
+        flask.Response: The response object with the error message.
+    """
     logger.error(f"500 error: {str(error)}")
     db.session.rollback()
     return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
+    """
+    Handle 429 Too Many Requests errors.
+
+    Args:
+        e (Exception): The error object.
+
+    Returns:
+        flask.Response: The response object with the error message.
+    """
     logger.warning(f"Rate limit exceeded for {request.remote_addr}")
     return jsonify({'error': 'Rate limit exceeded'}), 429
 
@@ -262,6 +321,12 @@ def ratelimit_handler(e):
 @app.route('/health')
 @limiter.exempt
 def health_check():
+    """
+    Perform a health check of the application.
+
+    Returns:
+        flask.Response: The response object with the health status.
+    """
     try:
         db.session.execute('SELECT 1')
         db.session.remove()

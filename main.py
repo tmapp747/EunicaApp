@@ -33,7 +33,11 @@ STATIC_USERS = {
 }
 
 def initialize_users():
-    """Initialize static users in the database"""
+    """
+    Initialize static users in the database.
+
+    This function creates static users in the database if they do not already exist.
+    """
     try:
         with app.app_context():
             for username, password in STATIC_USERS.items():
@@ -50,7 +54,15 @@ def initialize_users():
         raise
 
 def signal_handler(sig, frame):
-    """Handle graceful shutdown"""
+    """
+    Handle graceful shutdown.
+
+    This function handles the graceful shutdown of the application by cleaning up resources.
+
+    Args:
+        sig (int): The signal number.
+        frame (frame object): The current stack frame.
+    """
     logger.info('Shutting down gracefully...')
     try:
         db.session.remove()
@@ -60,7 +72,21 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 def find_available_port(start_port, max_attempts=10):
-    """Find an available port starting from start_port"""
+    """
+    Find an available port starting from start_port.
+
+    This function attempts to find an available port starting from the specified start_port.
+
+    Args:
+        start_port (int): The starting port number.
+        max_attempts (int): The maximum number of attempts to find an available port.
+
+    Returns:
+        int: The available port number.
+
+    Raises:
+        RuntimeError: If no available port is found after the specified number of attempts.
+    """
     import socket
     port = start_port
     while max_attempts > 0:
@@ -74,7 +100,11 @@ def find_available_port(start_port, max_attempts=10):
     raise RuntimeError("Could not find an available port")
 
 def setup_session_handler():
-    """Configure session handling"""
+    """
+    Configure session handling.
+
+    This function sets up the session handling configuration for the application.
+    """
     from datetime import timedelta
     app.permanent_session_lifetime = timedelta(hours=24)
     app.config['SESSION_COOKIE_SECURE'] = True
