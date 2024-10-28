@@ -81,36 +81,46 @@ def setup_session_handler():
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-if __name__ == '__main__':
-    # Create logs directory
-    os.makedirs('logs', exist_ok=True)
-    
-    # Register signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Setup session handling
-    setup_session_handler()
-    
+def initialize_app():
+    """Initialize the Flask application with all required setup"""
     try:
-        # Initialize database and users
+        # Create necessary directories
+        os.makedirs('logs', exist_ok=True)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(app.config['TEMP_FOLDER'], exist_ok=True)
+
+        # Register signal handlers
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        # Setup session handling
+        setup_session_handler()
+
+        # Initialize extensions
         with app.app_context():
             db.create_all()
             initialize_users()
-        
-        # Find available port
-        port = find_available_port(5000)
-        logger.info(f"Starting server on port {port}")
-        
-        # Run the application
-        socketio.run(
-            app,
-            host='0.0.0.0',
-            port=port,
-            use_reloader=True,
-            log_output=True,
-            debug=False  # Disable debug mode in production
-        )
+            cache.clear()  # Clear cache on startup
+
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {str(e)}")
+        return False
+
+if __name__ == '__main__':
+    if initialize_app():
+        try:
+            port = find_available_port(5000)
+            logger.info(f"Starting server on port {port}")
+            
+            socketio.run(
+                app,
+                host='0.0.0.0',
+                port=port,
+                use_reloader=True,
+                log_output=True,
+                debug=os.environ.get('FLASK_ENV') == 'development'
+            )
     except Exception as e:
         logger.error(f"Failed to start server: {str(e)}")
         sys.exit(1)

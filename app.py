@@ -242,21 +242,46 @@ def schedule_cleanup():
     cleanup_expired_sessions()
 
 # Error handlers with improved logging
-@app.errorhandler(404)
-def not_found_error(error):
-    logger.warning(f"404 error: {request.url}")
-    return jsonify({'error': 'Not found'}), 404
+def register_error_handlers(app):
+    @app.errorhandler(400)
+    def bad_request_error(error):
+        logger.warning(f"400 error: {request.url} - {str(error)}")
+        return jsonify({
+            'error': 'Bad Request',
+            'message': str(error),
+            'status_code': 400
+        }), 400
 
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"500 error: {str(error)}")
-    db.session.rollback()
-    return jsonify({'error': 'Internal server error'}), 500
+    @app.errorhandler(404)
+    def not_found_error(error):
+        logger.warning(f"404 error: {request.url}")
+        return jsonify({
+            'error': 'Not Found',
+            'message': 'The requested resource was not found',
+            'status_code': 404
+        }), 404
 
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    logger.warning(f"Rate limit exceeded for {request.remote_addr}")
-    return jsonify({'error': 'Rate limit exceeded'}), 429
+    @app.errorhandler(500)
+    def internal_error(error):
+        logger.error(f"500 error: {str(error)}")
+        db.session.rollback()
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': 'An unexpected error occurred',
+            'status_code': 500
+        }), 500
+
+    @app.errorhandler(429)
+    def ratelimit_handler(error):
+        logger.warning(f"Rate limit exceeded for {request.remote_addr}")
+        return jsonify({
+            'error': 'Too Many Requests',
+            'message': 'Rate limit exceeded',
+            'status_code': 429,
+            'retry_after': error.description
+        }), 429
+
+register_error_handlers(app)
 
 # Health check endpoint
 @app.route('/health')
