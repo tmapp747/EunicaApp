@@ -1,5 +1,6 @@
 import os
-from flask import Flask, jsonify, request, make_response, send_from_directory, render_template
+from flask import Flask, jsonify, request, make_response, send_from_directory, render_template, redirect, url_for
+from flask_login import current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
 from flask_login import LoginManager
@@ -286,7 +287,9 @@ register_error_handlers(app)
 # Root endpoint
 @app.route('/')
 def index():
-    return render_template('base.html')
+    if current_user.is_authenticated:
+        return redirect(url_for('chat'))
+    return redirect(url_for('login'))
 
 # Health check endpoint
 @app.route('/health')
