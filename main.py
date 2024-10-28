@@ -53,8 +53,9 @@ def signal_handler(sig, frame):
     """Handle graceful shutdown"""
     logger.info('Shutting down gracefully...')
     try:
-        db.session.remove()
-        cache.clear()
+        with app.app_context():
+            db.session.remove()
+            cache.clear()
     except Exception as e:
         logger.error(f"Error during shutdown: {str(e)}")
     sys.exit(0)

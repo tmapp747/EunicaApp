@@ -283,6 +283,11 @@ def register_error_handlers(app):
 
 register_error_handlers(app)
 
+# Root endpoint
+@app.route('/')
+def index():
+    return render_template('base.html')
+
 # Health check endpoint
 @app.route('/health')
 @limiter.exempt
