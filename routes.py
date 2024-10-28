@@ -4,9 +4,10 @@ from app import app, db
 from models import User, ChatRoom, Message
 
 @app.route('/')
-@login_required
 def index():
-    return redirect(url_for('chat'))
+    if current_user.is_authenticated:
+        return redirect(url_for('chat'))
+    return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -49,12 +50,41 @@ def chat():
     chatrooms = ChatRoom.query.join(
         'users'
     ).filter(User.id == current_user.id).all()
-    return render_template('chat.html', chatrooms=chatrooms)
+    
+    # Get all users for creating new chats
+    users = User.query.filter(User.id != current_user.id).all()
+    
+    return render_template('chat.html', 
+                         chatrooms=chatrooms,
+                         users=users,
+                         active_chat=None,
+                         messages=[])
 
 @app.route('/profile')
 @login_required
 def profile():
     return render_template('profile.html')
+
+@app.route('/chat/<int:chatroom_id>')
+@login_required
+def view_chat(chatroom_id):
+    chatroom = ChatRoom.query.get_or_404(chatroom_id)
+    if current_user not in chatroom.users:
+        flash('Access denied')
+        return redirect(url_for('chat'))
+        
+    chatrooms = ChatRoom.query.join(
+        'users'
+    ).filter(User.id == current_user.id).all()
+    
+    users = User.query.filter(User.id != current_user.id).all()
+    messages = Message.query.filter_by(chatroom_id=chatroom_id).order_by(Message.timestamp).all()
+    
+    return render_template('chat.html',
+                         chatrooms=chatrooms,
+                         users=users,
+                         active_chat=chatroom,
+                         messages=messages)
 
 @app.route('/chatroom/create', methods=['POST'])
 @login_required
