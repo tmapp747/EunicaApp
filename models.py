@@ -8,6 +8,7 @@ class User(UserMixin, db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(256))
     messages = db.relationship('Message', backref='sender', lazy='dynamic')
     chatrooms = db.relationship('ChatRoom', secondary='user_chatroom', back_populates='users')

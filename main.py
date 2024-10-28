@@ -115,11 +115,11 @@ def initialize_app():
 if __name__ == '__main__':
     if initialize_app():
         try:
-            port = find_available_port(5000)
+            port = find_available_port(8000)  # Start from port 8000 instead
             logger.info(f"Starting server on port {port}")
             
             socketio.run(
-                app,
+                app, 
                 host='0.0.0.0',
                 port=port,
                 use_reloader=True,
