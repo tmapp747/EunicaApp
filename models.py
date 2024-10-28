@@ -38,7 +38,7 @@ class ChatRoom(db.Model):
 class Message(db.Model):
     __tablename__ = 'message'
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(1000))
+    content = db.Column(db.String(1000), nullable=False)
     message_type = db.Column(db.String(20), default='text')  # text, image, file, voice
     file_path = db.Column(db.String(255))
     file_name = db.Column(db.String(255))

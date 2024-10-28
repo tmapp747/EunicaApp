@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app import app, db
-from models import User, Band, BandMembership, Message
+from models import User, ChatRoom, Message
 
 @app.route('/')
 @login_required
@@ -46,22 +46,29 @@ def logout():
 @app.route('/chat')
 @login_required
 def chat():
-    bands = Band.query.join(BandMembership).filter(
-        BandMembership.user_id == current_user.id
-    ).all()
-    return render_template('chat.html', bands=bands)
+    chatrooms = ChatRoom.query.join(
+        'users'
+    ).filter(User.id == current_user.id).all()
+    return render_template('chat.html', chatrooms=chatrooms)
 
 @app.route('/profile')
 @login_required
 def profile():
     return render_template('profile.html')
 
-@app.route('/band/create', methods=['POST'])
+@app.route('/chatroom/create', methods=['POST'])
 @login_required
-def create_band():
-    band = Band(name=request.form['name'])
-    db.session.add(band)
-    membership = BandMembership(user=current_user, band=band)
-    db.session.add(membership)
-    db.session.commit()
-    return redirect(url_for('chat'))
+def create_chatroom():
+    try:
+        chatroom = ChatRoom(
+            name=request.form['name'],
+            is_group=True
+        )
+        chatroom.users.append(current_user)
+        db.session.add(chatroom)
+        db.session.commit()
+        return redirect(url_for('chat'))
+    except Exception as e:
+        db.session.rollback()
+        flash('Error creating chat room', 'error')
+        return redirect(url_for('chat'))

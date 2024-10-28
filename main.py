@@ -37,13 +37,17 @@ def initialize_users():
     try:
         with app.app_context():
             for username, password in STATIC_USERS.items():
-                if not User.query.filter_by(username=username).first():
-                    user = User()
-                    user.username = username
-                    user.password_hash = generate_password_hash(password)
-                    db.session.add(user)
-            db.session.commit()
-            logger.info("Static users initialized successfully")
+                try:
+                    if not User.query.filter_by(username=username).first():
+                        user = User()
+                        user.username = username
+                        user.password_hash = generate_password_hash(password)
+                        db.session.add(user)
+                        db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    logger.error(f"Failed to create user {username}: {str(e)}")
+            logger.info("Static users initialization completed")
     except Exception as e:
         logger.error(f"Error initializing users: {str(e)}")
         db.session.rollback()
