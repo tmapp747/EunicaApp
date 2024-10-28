@@ -5,6 +5,17 @@
     <div class="contacts-sidebar" id="contactsSidebar">
         <div class="sidebar-header">
             <button class="btn btn-primary btn-sm w-100 mb-3">New Group</button>
+            <div class="search-container mb-3">
+                <div class="input-group">
+                    <input type="text" id="message-search" class="form-control" placeholder="Search messages...">
+                    <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="search-results" class="search-results d-none">
+                <!-- Search results will be displayed here -->
+            </div>
         </div>
         <div class="contacts-list">
             {% for user in users %}
@@ -98,6 +109,11 @@ const messageInput = document.getElementById('message-input');
 const fileInput = document.getElementById('file-input');
 const chatIdInput = document.getElementById('chat-id');
 const sidebar = document.getElementById('contactsSidebar');
+const searchInput = document.getElementById('message-search');
+const searchBtn = document.getElementById('search-btn');
+const searchResults = document.getElementById('search-results');
+
+let searchTimeout = null;
 
 function toggleSidebar() {
     sidebar.classList.toggle('show');
@@ -154,6 +170,63 @@ function createMessageElement(data) {
     messageDiv.appendChild(contentDiv);
     return messageDiv;
 }
+
+async function handleSearch() {
+    const query = searchInput.value.trim();
+    if (!query) {
+        searchResults.classList.add('d-none');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/search_messages?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displaySearchResults(data.results);
+        } else {
+            throw new Error(data.error || 'Search failed');
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        showError('Failed to search messages', searchInput.parentElement);
+    }
+}
+
+function displaySearchResults(results) {
+    searchResults.innerHTML = '';
+    searchResults.classList.remove('d-none');
+    
+    if (results.length === 0) {
+        searchResults.innerHTML = '<div class="no-results">No messages found</div>';
+        return;
+    }
+    
+    results.forEach(result => {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'search-result-item';
+        resultDiv.innerHTML = `
+            <div class="result-header">
+                <span class="result-username">${result.username}</span>
+                <span class="result-time">${result.timestamp}</span>
+            </div>
+            <div class="result-content">${result.content}</div>
+        `;
+        resultDiv.addEventListener('click', () => {
+            window.location.href = `/chat/${result.chat_id}`;
+        });
+        searchResults.appendChild(resultDiv);
+    });
+}
+
+searchInput?.addEventListener('input', () => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    searchTimeout = setTimeout(handleSearch, 300);
+});
+
+searchBtn?.addEventListener('click', handleSearch);
 
 messageForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -214,15 +287,6 @@ socket.on('new_message', (data) => {
     const messageDiv = createMessageElement(data);
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-});
-
-socket.on('new_notification', (data) => {
-    // Don't show notification if we're in the same chat
-    const currentChatId = chatIdInput?.value;
-    if (currentChatId && currentChatId === data.chat_id) {
-        return;
-    }
-    addNotification(data);
 });
 
 // Auto-scroll to bottom on page load

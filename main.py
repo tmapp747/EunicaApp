@@ -7,6 +7,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
+from sqlalchemy import or_
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -123,6 +124,39 @@ def chat(user_id=None):
         logger.error(f"Error in chat route: {str(e)}")
         flash("An error occurred. Please try again.")
         return redirect(url_for('index'))
+
+@app.route('/search_messages')
+@login_required
+def search_messages():
+    try:
+        query = request.args.get('q', '').strip()
+        if not query:
+            return jsonify({'results': []})
+
+        # Get all chats the user is part of
+        user_chats = ChatRoom.query.filter(ChatRoom.users.contains(current_user)).all()
+        chat_ids = [chat.id for chat in user_chats]
+
+        # Search messages in user's chats
+        messages = Message.query.filter(
+            Message.chatroom_id.in_(chat_ids),
+            Message.content.ilike(f'%{query}%')
+        ).order_by(Message.timestamp.desc()).limit(20).all()
+
+        results = []
+        for msg in messages:
+            results.append({
+                'content': msg.content,
+                'username': msg.sender.username,
+                'timestamp': msg.timestamp.strftime('%H:%M %d/%m/%Y'),
+                'chat_id': msg.chatroom_id
+            })
+
+        return jsonify({'results': results})
+
+    except Exception as e:
+        logger.error(f"Error searching messages: {str(e)}")
+        return jsonify({'error': 'Failed to search messages'}), 500
 
 @app.route('/send_message', methods=['POST'])
 @login_required
