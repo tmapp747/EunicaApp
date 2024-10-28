@@ -1,7 +1,87 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Previous content remains the same until the script tag -->
+<div class="chat-layout">
+    <div class="contacts-sidebar" id="contactsSidebar">
+        <div class="sidebar-header">
+            <button class="btn btn-primary btn-sm w-100 mb-3">New Group</button>
+        </div>
+        <div class="contacts-list">
+            {% for user in users %}
+                {% if user.id != current_user.id %}
+                <div class="contact-item {% if active_chat and chat_partner and chat_partner.id == user.id %}active{% endif %}" 
+                     onclick="location.href='{{ url_for('chat', user_id=user.id) }}'">
+                    <div class="contact-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="contact-info">
+                        <div class="contact-name">{{ user.username }}</div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="chat-main">
+        {% if active_chat %}
+        <div class="chat-header">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <span class="chat-title">{{ chat_partner.username }}</span>
+                {% if chat_partner %}
+                <div class="d-flex gap-2">
+                    <button class="btn btn-dark call-btn"><i class="fas fa-phone"></i></button>
+                    <button class="btn btn-dark call-btn"><i class="fas fa-video"></i></button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="messages" id="messages">
+            {% for message in messages %}
+            <div class="message {% if message.sender_id == current_user.id %}message-own{% endif %}">
+                <div class="message-header">
+                    <span>{{ message.sender.username }}</span>
+                    <span>{{ message.timestamp.strftime('%H:%M') }}</span>
+                </div>
+                <div class="message-content">
+                    {% if message.message_type == 'text' %}
+                        {{ message.content }}
+                    {% elif message.message_type == 'image' %}
+                        {% if message.content %}
+                            <p>{{ message.content }}</p>
+                        {% endif %}
+                        <img src="{{ url_for('static', filename=message.file_path) }}" alt="Shared image" class="message-image" onclick="window.open(this.src)">
+                    {% elif message.message_type == 'file' %}
+                        {% if message.content %}
+                            <p>{{ message.content }}</p>
+                        {% endif %}
+                        <div class="file-attachment">
+                            <i class="fas fa-file"></i>
+                            <a href="{{ url_for('static', filename=message.file_path) }}" target="_blank" class="file-link" download>
+                                {{ message.file_name }}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if active_chat %}
+        <form class="message-form" id="message-form" enctype="multipart/form-data">
+            <input type="hidden" id="chat-id" value="{{ active_chat.id }}">
+            <input type="text" class="form-control message-input" id="message-input" placeholder="Type your message...">
+            <label for="file-input" class="btn btn-dark attach-btn" title="Attach file">
+                <i class="fas fa-paperclip"></i>
+                <input type="file" id="file-input" class="d-none" accept="image/*,.pdf,.doc,.docx">
+            </label>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -100,7 +180,6 @@ async function handleFileUpload(file, formData) {
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     
-    // Show progress bar with animation
     requestAnimationFrame(() => {
         progressDiv.classList.add('show');
     });
@@ -119,7 +198,6 @@ async function handleFileUpload(file, formData) {
         return new Promise((resolve, reject) => {
             xhr.onload = () => {
                 if (xhr.status === 200) {
-                    // Fade out progress bar before removing
                     progressDiv.classList.remove('show');
                     setTimeout(() => progressDiv.remove(), 300);
                     
@@ -199,7 +277,6 @@ messageForm?.addEventListener('submit', async (e) => {
     }
 });
 
-// Socket event handlers remain the same
 socket.on('connect', () => {
     console.log('Connected to server');
     const chatId = chatIdInput?.value;
