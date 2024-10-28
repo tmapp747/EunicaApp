@@ -1,9 +1,9 @@
+import os
 from app import app, socketio, db
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import current_user, login_user, logout_user, login_required
 from models import User, Message, ChatRoom
 from werkzeug.utils import secure_filename
-import os
 import uuid
 import logging
 from datetime import datetime
@@ -112,18 +112,101 @@ def chat(user_id=None):
         active_chat = None
         chat_partner = None
         messages = []
+        groups = ChatRoom.query.filter(
+            ChatRoom.is_group == True,
+            ChatRoom.users.contains(current_user)
+        ).all()
 
         if user_id:
             chat_partner = User.query.get_or_404(user_id)
             active_chat = get_or_create_chat(current_user, chat_partner)
             messages = Message.query.filter_by(chatroom_id=active_chat.id).order_by(Message.timestamp.asc()).all()
 
-        return render_template('chat.html', users=users, active_chat=active_chat, chat_partner=chat_partner, messages=messages)
+        return render_template('chat.html', users=users, active_chat=active_chat, 
+                            chat_partner=chat_partner, messages=messages, groups=groups)
         
     except Exception as e:
         logger.error(f"Error in chat route: {str(e)}")
         flash("An error occurred. Please try again.")
         return redirect(url_for('index'))
+
+@app.route('/chat/group/<int:group_id>')
+@login_required
+def chat_group(group_id):
+    try:
+        group = ChatRoom.query.get_or_404(group_id)
+        if not current_user in group.users:
+            flash("You don't have access to this group")
+            return redirect(url_for('chat'))
+            
+        users = User.query.all()
+        groups = ChatRoom.query.filter(
+            ChatRoom.is_group == True,
+            ChatRoom.users.contains(current_user)
+        ).all()
+        messages = Message.query.filter_by(chatroom_id=group_id).order_by(Message.timestamp.asc()).all()
+        
+        return render_template('chat.html', users=users, active_chat=group,
+                            messages=messages, groups=groups)
+                            
+    except Exception as e:
+        logger.error(f"Error in group chat route: {str(e)}")
+        flash("An error occurred. Please try again.")
+        return redirect(url_for('chat'))
+
+@app.route('/create_group', methods=['POST'])
+@login_required
+def create_group():
+    try:
+        name = request.form.get('name', '').strip()
+        member_ids = request.form.getlist('members')
+        
+        if not name:
+            return jsonify({'error': 'Group name is required'}), 400
+            
+        if not member_ids:
+            return jsonify({'error': 'Select at least one member'}), 400
+            
+        # Create new group
+        group = ChatRoom()
+        group.name = name
+        group.is_group = True
+        
+        # Add current user
+        group.users.append(current_user)
+        
+        # Add selected members
+        for member_id in member_ids:
+            member = User.query.get(member_id)
+            if member and member != current_user:
+                group.users.append(member)
+        
+        db.session.add(group)
+        db.session.commit()
+        
+        # Emit socket event to notify group members
+        user_list = [u for u in group.users if u != current_user]
+        for user in user_list:
+            socketio.emit(
+                'new_notification',
+                {
+                    'message': f'{current_user.username} added you to group {group.name}',
+                    'timestamp': datetime.now().strftime('%H:%M'),
+                    'chat_id': group.id,
+                    'type': 'group_invite'
+                },
+                to=f'user_{user.id}'
+            )
+        
+        return jsonify({
+            'status': 'success',
+            'group_id': group.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating group: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create group'}), 500
 
 @app.route('/search_messages')
 @login_required
@@ -181,7 +264,7 @@ def send_message():
         file_name = None
         message_type = 'text'
         
-        if file:
+        if file and file.filename:
             try:
                 file_path, file_name = save_file(file)
                 if file_path:
@@ -193,28 +276,50 @@ def send_message():
                 return jsonify({'error': 'File upload failed'}), 500
         
         # Create message
-        message = Message(
-            content=message_text if message_text else '',
-            message_type=message_type,
-            file_path=file_path,
-            file_name=file_name,
-            sender_id=current_user.id,
-            chatroom_id=chat_id
-        )
+        message = Message()
+        message.content = message_text if message_text else ''
+        message.message_type = message_type
+        message.file_path = file_path
+        message.file_name = file_name
+        message.sender_id = current_user.id
+        message.chatroom_id = chat_id
         
         db.session.add(message)
         db.session.commit()
         
         # Emit socket event
-        socketio.emit('new_message', {
-            'message': message.content,
-            'message_type': message_type,
-            'file_path': url_for('static', filename=file_path) if file_path else None,
-            'file_name': file_name,
-            'username': current_user.username,
-            'sender_id': current_user.id,
-            'timestamp': message.timestamp.strftime('%H:%M')
-        }, room=str(chat_id))
+        socketio.emit(
+            'new_message',
+            {
+                'message': message.content,
+                'message_type': message_type,
+                'file_path': url_for('static', filename=file_path) if file_path else None,
+                'file_name': file_name,
+                'username': current_user.username,
+                'sender_id': current_user.id,
+                'timestamp': message.timestamp.strftime('%H:%M')
+            },
+            to=str(chat_id)
+        )
+        
+        # Send notifications to other chat members
+        user_list = [u for u in chatroom.users if u != current_user]
+        for user in user_list:
+            notification_message = f'New message from {current_user.username}'
+            if chatroom.is_group:
+                notification_message += f' in {chatroom.name}'
+                
+            socketio.emit(
+                'new_notification',
+                {
+                    'message': notification_message,
+                    'timestamp': datetime.now().strftime('%H:%M'),
+                    'chat_id': chat_id,
+                    'sender_id': current_user.id,
+                    'type': 'message'
+                },
+                to=f'user_{user.id}'
+            )
         
         return jsonify({'status': 'success'})
         
