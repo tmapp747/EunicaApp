@@ -10,6 +10,16 @@ logger = logging.getLogger(__name__)
 
 @socketio.on('connect')
 def handle_connect():
+    """
+    Handle user connection to the WebSocket.
+
+    This function is triggered when a user connects to the WebSocket.
+    It checks if the user is authenticated, joins the user to their specific room,
+    and emits a connection confirmation.
+
+    Returns:
+        bool: True if the connection is successful, False otherwise.
+    """
     if not current_user.is_authenticated:
         logger.warning("Unauthenticated user attempted to connect")
         return False
@@ -28,6 +38,12 @@ def handle_connect():
 
 @socketio.on('error')
 def handle_error(error):
+    """
+    Handle errors that occur during WebSocket communication.
+
+    Args:
+        error (Exception): The error that occurred.
+    """
     error_msg = str(error)
     logger.error(f"SocketIO error: {error_msg}")
     if current_user.is_authenticated:
@@ -36,6 +52,15 @@ def handle_error(error):
 
 @socketio.on('join')
 def on_join(data):
+    """
+    Handle user joining a room.
+
+    Args:
+        data (dict): The data containing the room information.
+
+    Returns:
+        bool: True if the user successfully joins the room, False otherwise.
+    """
     try:
         if not current_user.is_authenticated:
             logger.warning("Unauthenticated user attempted to join room")
@@ -87,6 +112,15 @@ def on_join(data):
 
 @socketio.on('leave')
 def on_leave(data):
+    """
+    Handle user leaving a room.
+
+    Args:
+        data (dict): The data containing the room information.
+
+    Returns:
+        bool: True if the user successfully leaves the room, False otherwise.
+    """
     try:
         if not current_user.is_authenticated:
             return False
@@ -105,6 +139,15 @@ def on_leave(data):
 
 @socketio.on('send_message')
 def handle_message(data):
+    """
+    Handle sending a message in a chat room.
+
+    Args:
+        data (dict): The data containing the message information.
+
+    Returns:
+        bool: True if the message is successfully sent, False otherwise.
+    """
     try:
         if not current_user.is_authenticated:
             raise ValueError("User not authenticated")
