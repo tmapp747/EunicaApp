@@ -96,7 +96,7 @@ body {
 
 .message-own {
     margin-left: auto;
-    background: var(--bs-green);
+    background: var(--message-bg);
     color: white;
 }
 
