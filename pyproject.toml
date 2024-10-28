@@ -13,4 +13,8 @@ dependencies = [
     "oauthlib>=3.2.2",
     "werkzeug",
     "sqlalchemy",
+    "playwright>=1.48.0",
+    "pytest-playwright>=0.5.2",
+    "pytest-asyncio",
+    "pytest",
 ]
