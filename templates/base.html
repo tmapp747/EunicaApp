@@ -28,8 +28,25 @@
             
             <!-- Right section -->
             <div class="d-flex align-items-center">
+                <div class="notification-bell position-relative me-3" id="notificationBell">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notificationBadge"></span>
+                </div>
                 <span class="me-3 text-light">{{ current_user.username }}</span>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+            </div>
+            
+            <!-- Notification dropdown -->
+            <div class="notification-dropdown" id="notificationDropdown">
+                <div class="notification-header">
+                    <h6 class="mb-0">Notifications</h6>
+                    <button class="btn btn-link btn-sm text-light p-0" onclick="clearAllNotifications()">
+                        Clear All
+                    </button>
+                </div>
+                <div class="notification-list" id="notificationList">
+                    <!-- Notifications will be inserted here -->
+                </div>
             </div>
         </div>
     </header>
@@ -47,6 +64,78 @@
         {% block content %}{% endblock %}
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    {% if current_user.is_authenticated %}
+    <script>
+        const notificationBell = document.getElementById('notificationBell');
+        const notificationDropdown = document.getElementById('notificationDropdown');
+        const notificationBadge = document.getElementById('notificationBadge');
+        const notificationList = document.getElementById('notificationList');
+        let unreadCount = 0;
+        let notifications = [];
+
+        function updateNotificationBadge() {
+            if (unreadCount > 0) {
+                notificationBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                notificationBadge.style.display = 'block';
+            } else {
+                notificationBadge.style.display = 'none';
+            }
+        }
+
+        function addNotification(data) {
+            const notification = document.createElement('div');
+            notification.className = 'notification-item';
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <div class="notification-text">${data.message}</div>
+                    <div class="notification-time">${data.timestamp}</div>
+                </div>
+            `;
+            
+            notificationList.insertBefore(notification, notificationList.firstChild);
+            notifications.push(data);
+            unreadCount++;
+            updateNotificationBadge();
+            
+            // Show desktop notification if permission granted
+            if (Notification.permission === 'granted') {
+                new Notification('Eunica Band Chat', {
+                    body: data.message,
+                    icon: '/static/generated-icon.png'
+                });
+            }
+        }
+
+        function clearAllNotifications() {
+            notificationList.innerHTML = '';
+            notifications = [];
+            unreadCount = 0;
+            updateNotificationBadge();
+            notificationDropdown.classList.remove('show');
+        }
+
+        notificationBell.addEventListener('click', () => {
+            notificationDropdown.classList.toggle('show');
+            if (notificationDropdown.classList.contains('show')) {
+                unreadCount = 0;
+                updateNotificationBadge();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!notificationBell.contains(e.target) && !notificationDropdown.contains(e.target)) {
+                notificationDropdown.classList.remove('show');
+            }
+        });
+
+        // Request notification permission
+        if ('Notification' in window) {
+            if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        }
+    </script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>

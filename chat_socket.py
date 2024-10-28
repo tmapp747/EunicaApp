@@ -2,8 +2,9 @@ from flask_socketio import emit, join_room, leave_room
 from flask_login import current_user
 from flask import current_app
 from app import socketio, db
-from models import Message, ChatRoom
+from models import Message, ChatRoom, User
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 def handle_connect():
     if not current_user.is_authenticated:
         return False
+    join_room(f'user_{current_user.id}')
     return True
 
 @socketio.on('error')
@@ -48,7 +50,8 @@ def handle_message(data):
         db.session.add(message)
         db.session.commit()
         
-        emit('new_message', {
+        # Prepare message data
+        message_data = {
             'message': message.content,
             'message_type': message.message_type,
             'file_path': file_path,
@@ -56,7 +59,22 @@ def handle_message(data):
             'username': current_user.username,
             'sender_id': current_user.id,
             'timestamp': message.timestamp.strftime('%H:%M')
-        }, room=str(chat_id))
+        }
+        
+        # Send message to chat room
+        emit('new_message', message_data, room=str(chat_id))
+        
+        # Send notifications to other users in the chat
+        notification_data = {
+            'message': f'New message from {current_user.username} in {chatroom.name}',
+            'timestamp': datetime.now().strftime('%H:%M'),
+            'chat_id': chat_id,
+            'sender_id': current_user.id
+        }
+        
+        for user in chatroom.users:
+            if user.id != current_user.id:
+                emit('new_notification', notification_data, room=f'user_{user.id}')
         
         return True
         
