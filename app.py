@@ -78,9 +78,9 @@ class TimeoutMiddleware:
 
     def __call__(self, environ, start_response):
         from threading import Timer
-        import thread
+        import _thread
 
-        timeout_handler = lambda: thread.interrupt_main()
+        timeout_handler = lambda: _thread.interrupt_main()
         timer = Timer(self.timeout, timeout_handler)
         timer.start()
         try:
