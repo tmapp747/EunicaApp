@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 @socketio.on('connect')
 def handle_connect():
     if not current_user.is_authenticated:
+        logger.warning("Unauthenticated user attempted to connect")
         return False
     logger.info(f"User {current_user.username} connected")
     join_room(f'user_{current_user.id}')
@@ -19,15 +20,19 @@ def handle_connect():
 @socketio.on('error')
 def handle_error(error):
     logger.error(f"SocketIO error: {error}")
+    if current_user.is_authenticated:
+        logger.error(f"Error for user {current_user.username}: {error}")
 
 @socketio.on('join')
 def on_join(data):
     try:
         if not current_user.is_authenticated:
+            logger.warning("Unauthenticated user attempted to join room")
             return False
         
         room = data.get('room')
         if not room:
+            logger.error("No room specified in join request")
             return False
         
         # Handle both chat rooms and user-specific rooms
@@ -36,15 +41,21 @@ def on_join(data):
             if str(current_user.id) == user_id:
                 join_room(room)
                 logger.info(f"User {current_user.username} joined notification room {room}")
+                emit('room_joined', {'room': room}, room=room)
                 return True
+            else:
+                logger.warning(f"User {current_user.username} attempted to join unauthorized notification room {room}")
+                return False
         else:
             chatroom = ChatRoom.query.get(room)
             if chatroom and current_user in chatroom.users:
                 join_room(str(room))
                 logger.info(f"User {current_user.username} joined chat room {room}")
+                emit('room_joined', {'room': str(room)}, room=str(room))
                 return True
-        
-        return False
+            else:
+                logger.warning(f"User {current_user.username} attempted to join unauthorized chat room {room}")
+                return False
         
     except Exception as e:
         logger.error(f"Error joining room: {str(e)}")
@@ -85,18 +96,19 @@ def handle_message(data):
         file_path = data.get('file_path')
         file_name = data.get('file_name')
         
-        # Create and save message
-        message = Message(
-            content=message_content,
-            message_type=message_type,
-            file_path=file_path,
-            file_name=file_name,
-            sender=current_user,
-            chatroom=chatroom
-        )
+        # Create message
+        message = Message()
+        message.content = message_content
+        message.message_type = message_type
+        message.file_path = file_path
+        message.file_name = file_name
+        message.sender = current_user
+        message.chatroom = chatroom
         
         db.session.add(message)
         db.session.commit()
+        
+        logger.info(f"Message sent by {current_user.username} in chat {chat_id}")
         
         # Prepare message data
         message_data = {
