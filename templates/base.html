@@ -15,7 +15,7 @@
         <div class="container-fluid position-relative">
             <!-- Left section -->
             <div class="d-flex align-items-center">
-                <button class="hamburger-btn d-md-none" onclick="toggleSidebar()">
+                <button class="btn btn-link text-light hamburger-btn d-md-none" onclick="window.toggleSidebar()">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
@@ -66,6 +66,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     {% if current_user.is_authenticated %}
     <script>
+        // Initialize socket connection
         let socket = io();
         const notificationBell = document.getElementById('notificationBell');
         const notificationDropdown = document.getElementById('notificationDropdown');
@@ -74,6 +75,15 @@
         let unreadCount = 0;
         let notifications = [];
 
+        // Make toggleSidebar available globally
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('contactsSidebar');
+            if (sidebar) {
+                sidebar.classList.toggle('show');
+            }
+        };
+
+        // Connect to socket and join user-specific room
         socket.on('connect', () => {
             console.log('Connected to notification system');
             socket.emit('join', { room: `user_{{ current_user.id }}` });
@@ -126,7 +136,9 @@
             notificationDropdown.classList.remove('show');
         }
 
-        notificationBell.addEventListener('click', () => {
+        // Toggle notification dropdown
+        notificationBell.addEventListener('click', (e) => {
+            e.stopPropagation();
             notificationDropdown.classList.toggle('show');
             if (notificationDropdown.classList.contains('show')) {
                 unreadCount = 0;
@@ -134,6 +146,7 @@
             }
         });
 
+        // Close notification dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!notificationBell.contains(e.target) && !notificationDropdown.contains(e.target)) {
                 notificationDropdown.classList.remove('show');
@@ -149,6 +162,7 @@
 
         // Listen for new notifications
         socket.on('new_notification', (data) => {
+            console.log('Received notification:', data);
             addNotification(data);
         });
     </script>

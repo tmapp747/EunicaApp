@@ -1,6 +1,6 @@
 from flask_socketio import emit, join_room, leave_room
 from flask_login import current_user
-from flask import current_app
+from flask import current_app, url_for
 from app import socketio, db
 from models import Message, ChatRoom, User
 import logging
@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 def handle_connect():
     if not current_user.is_authenticated:
         return False
+    logger.info(f"User {current_user.username} connected")
     join_room(f'user_{current_user.id}')
     return True
 
@@ -28,17 +29,19 @@ def on_join(data):
         room = data.get('room')
         if not room:
             return False
-            
+        
         # Handle both chat rooms and user-specific rooms
-        if room.startswith('user_'):
+        if isinstance(room, str) and room.startswith('user_'):
             user_id = room.split('_')[1]
             if str(current_user.id) == user_id:
                 join_room(room)
+                logger.info(f"User {current_user.username} joined notification room {room}")
                 return True
         else:
             chatroom = ChatRoom.query.get(room)
             if chatroom and current_user in chatroom.users:
-                join_room(room)
+                join_room(str(room))
+                logger.info(f"User {current_user.username} joined chat room {room}")
                 return True
         
         return False
@@ -56,6 +59,7 @@ def on_leave(data):
         room = data.get('room')
         if room:
             leave_room(room)
+            logger.info(f"User {current_user.username} left room {room}")
             return True
             
     except Exception as e:
@@ -81,13 +85,14 @@ def handle_message(data):
         file_path = data.get('file_path')
         file_name = data.get('file_name')
         
+        # Create and save message
         message = Message(
             content=message_content,
             message_type=message_type,
             file_path=file_path,
             file_name=file_name,
-            sender_id=current_user.id,
-            chatroom_id=chat_id
+            sender=current_user,
+            chatroom=chatroom
         )
         
         db.session.add(message)
@@ -97,14 +102,14 @@ def handle_message(data):
         message_data = {
             'message': message.content,
             'message_type': message.message_type,
-            'file_path': file_path,
+            'file_path': url_for('static', filename=file_path) if file_path else None,
             'file_name': file_name,
             'username': current_user.username,
             'sender_id': current_user.id,
             'timestamp': message.timestamp.strftime('%H:%M')
         }
         
-        # Send message to chat room
+        # Emit message to chat room
         emit('new_message', message_data, room=str(chat_id))
         
         # Send notifications to other users in the chat
@@ -115,14 +120,18 @@ def handle_message(data):
             'sender_id': current_user.id
         }
         
+        # Send notifications to all users in the chat except sender
         for user in chatroom.users:
             if user.id != current_user.id:
-                emit('new_notification', notification_data, room=f'user_{user.id}')
+                user_room = f'user_{user.id}'
+                emit('new_notification', notification_data, room=user_room)
+                logger.info(f"Sent notification to user {user.username} in room {user_room}")
         
         return True
         
     except Exception as e:
         logger.error(f"Error handling message: {str(e)}")
-        emit('message_error', {'error': str(e)}, room=str(chat_id))
+        if 'chat_id' in locals():
+            emit('message_error', {'error': str(e)}, room=str(chat_id))
         db.session.rollback()
         return False
