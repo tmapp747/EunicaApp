@@ -45,7 +45,7 @@ def logout():
 @login_required
 def chat():
     chatrooms = ChatRoom.query.join(
-        'users'
+        ChatRoom.users
     ).filter(User.id == current_user.id).all()
     
     # Get all users for creating new chats
