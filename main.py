@@ -121,6 +121,6 @@ if __name__ == '__main__':
                 log_output=True,
                 debug=os.environ.get('FLASK_ENV') == 'development'
             )
-    except Exception as e:
-        logger.error(f"Failed to start server: {str(e)}")
-        sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to start server: {str(e)}")
+            sys.exit(1)
