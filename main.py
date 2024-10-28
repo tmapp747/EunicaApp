@@ -1,5 +1,5 @@
 import os
-from app import app, socketio, db
+from app import app, socketio, db, cache, limiter
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import current_user, login_user, logout_user, login_required
 from models import User, Message, ChatRoom
@@ -60,6 +60,19 @@ def save_file(file):
         logger.error(f"Error saving file: {str(e)}")
         raise
 
+@cache.memoize(timeout=300)
+def get_user_chats(user_id):
+    return ChatRoom.query.filter(
+        ChatRoom.users.any(User.id == user_id)
+    ).all()
+
+@cache.memoize(timeout=300)
+def get_chat_messages(chat_id, limit=50):
+    return Message.query.filter_by(chatroom_id=chat_id)\
+        .order_by(Message.timestamp.desc())\
+        .limit(limit)\
+        .all()
+
 def initialize_users():
     try:
         with app.app_context():
@@ -74,8 +87,12 @@ def initialize_users():
         logger.error(f"Error initializing users: {str(e)}")
         db.session.rollback()
 
-def get_or_create_chat(user1, user2):
+@cache.memoize(timeout=300)
+def get_or_create_chat(user1_id, user2_id):
     try:
+        user1 = User.query.get(user1_id)
+        user2 = User.query.get(user2_id)
+        
         chat = ChatRoom.query.filter(
             ChatRoom.is_group == False,
             ChatRoom.users.contains(user1),
@@ -84,12 +101,14 @@ def get_or_create_chat(user1, user2):
         
         if not chat:
             chat = ChatRoom()
-            chat.name = user2.username if user1 == current_user else user1.username
+            chat.name = user2.username if user1_id == current_user.id else user1.username
             chat.is_group = False
             chat.users.append(user1)
             chat.users.append(user2)
             db.session.add(chat)
             db.session.commit()
+            cache.delete_memoized(get_user_chats, user1_id)
+            cache.delete_memoized(get_user_chats, user2_id)
         
         return chat
         
@@ -106,21 +125,19 @@ def index():
 @app.route('/chat')
 @app.route('/chat/<int:user_id>')
 @login_required
+@cache.cached(timeout=60, unless=lambda: current_user.is_authenticated)
 def chat(user_id=None):
     try:
         users = User.query.all()
         active_chat = None
         chat_partner = None
         messages = []
-        groups = ChatRoom.query.filter(
-            ChatRoom.is_group == True,
-            ChatRoom.users.contains(current_user)
-        ).all()
+        groups = get_user_chats(current_user.id)
 
         if user_id:
             chat_partner = User.query.get_or_404(user_id)
-            active_chat = get_or_create_chat(current_user, chat_partner)
-            messages = Message.query.filter_by(chatroom_id=active_chat.id).order_by(Message.timestamp.asc()).all()
+            active_chat = get_or_create_chat(current_user.id, user_id)
+            messages = get_chat_messages(active_chat.id)
 
         return render_template('chat.html', users=users, active_chat=active_chat, 
                             chat_partner=chat_partner, messages=messages, groups=groups)
@@ -132,6 +149,7 @@ def chat(user_id=None):
 
 @app.route('/chat/group/<int:group_id>')
 @login_required
+@cache.cached(timeout=60, unless=lambda: current_user.is_authenticated)
 def chat_group(group_id):
     try:
         group = ChatRoom.query.get_or_404(group_id)
@@ -140,11 +158,8 @@ def chat_group(group_id):
             return redirect(url_for('chat'))
             
         users = User.query.all()
-        groups = ChatRoom.query.filter(
-            ChatRoom.is_group == True,
-            ChatRoom.users.contains(current_user)
-        ).all()
-        messages = Message.query.filter_by(chatroom_id=group_id).order_by(Message.timestamp.asc()).all()
+        groups = get_user_chats(current_user.id)
+        messages = get_chat_messages(group_id)
         
         return render_template('chat.html', users=users, active_chat=group,
                             messages=messages, groups=groups)
@@ -156,6 +171,7 @@ def chat_group(group_id):
 
 @app.route('/create_group', methods=['POST'])
 @login_required
+@limiter.limit("10 per hour")
 def create_group():
     try:
         name = request.form.get('name', '').strip()
@@ -184,6 +200,10 @@ def create_group():
         db.session.add(group)
         db.session.commit()
         
+        # Clear cache for all group members
+        for user in group.users:
+            cache.delete_memoized(get_user_chats, user.id)
+        
         # Emit socket event to notify group members
         user_list = [u for u in group.users if u != current_user]
         for user in user_list:
@@ -210,6 +230,7 @@ def create_group():
 
 @app.route('/search_messages')
 @login_required
+@limiter.limit("30 per minute")
 def search_messages():
     try:
         query = request.args.get('q', '').strip()
@@ -217,7 +238,7 @@ def search_messages():
             return jsonify({'results': []})
 
         # Get all chats the user is part of
-        user_chats = ChatRoom.query.filter(ChatRoom.users.contains(current_user)).all()
+        user_chats = get_user_chats(current_user.id)
         chat_ids = [chat.id for chat in user_chats]
 
         # Search messages in user's chats
@@ -243,6 +264,7 @@ def search_messages():
 
 @app.route('/send_message', methods=['POST'])
 @login_required
+@limiter.limit("60 per minute")
 def send_message():
     try:
         chat_id = request.form.get('chat_id')
@@ -287,6 +309,9 @@ def send_message():
         db.session.add(message)
         db.session.commit()
         
+        # Clear message cache
+        cache.delete_memoized(get_chat_messages, chat_id)
+        
         # Emit socket event
         socketio.emit(
             'new_message',
@@ -329,6 +354,7 @@ def send_message():
         return jsonify({'error': 'Failed to send message'}), 500
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("20 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -351,6 +377,7 @@ def login():
 @app.route('/logout')
 def logout():
     logout_user()
+    cache.delete_memoized(get_user_chats, current_user.id)
     return redirect(url_for('login'))
 
 # Initialize static users

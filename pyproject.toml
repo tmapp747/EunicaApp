@@ -18,4 +18,8 @@ dependencies = [
     "pytest-asyncio",
     "pytest",
     "pytest-html",
+    "flask-limiter>=3.8.0",
+    "flask-caching>=2.3.0",
+    "flask-compress>=1.17",
+    "sentry-sdk>=2.17.0",
 ]
